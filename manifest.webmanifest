@@ -1,0 +1,14 @@
+{
+  "name": "Prof — Avaliações",
+  "short_name": "Prof",
+  "description": "Leitor de gabaritos e formatador de avaliações",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f5f9",
+  "theme_color": "#3446a8",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
