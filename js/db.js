@@ -39,8 +39,9 @@ async function tx(store, mode, fn) {
 export const db = {
   getAll: (store) => tx(store, 'readonly', (s) => s.getAll()),
   get: (store, id) => tx(store, 'readonly', (s) => s.get(id)),
-  put: (store, obj) => {
-    obj.atualizadoEm = Date.now();
+  /** `manterData`: grava sem mudar "atualizado em" (ex.: marcar como favorito). */
+  put: (store, obj, { manterData = false } = {}) => {
+    if (!manterData || !obj.atualizadoEm) obj.atualizadoEm = Date.now();
     if (!obj.criadoEm) obj.criadoEm = obj.atualizadoEm;
     return tx(store, 'readwrite', (s) => s.put(obj));
   },

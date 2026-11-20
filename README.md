@@ -11,7 +11,7 @@ Aplicativo web (funciona no computador e no celular, inclusive offline) com duas
 
 ## Formatador de Avaliações
 - Histórico das avaliações geradas + botão de criar nova.
-- **Banco de questões**: comando (editor completo), solução e distratores, com disciplina/assunto/série/dificuldade e busca.
+- **Questões**: comando (editor completo), solução e distratores, com disciplina/assunto/série/dificuldade e busca.
 - **Editor no estilo do Word**: uma faixa de opções única no topo da questão, que age no campo onde está o cursor (comando, solução ou distrator).
   - *Página Inicial*: colar/recortar/copiar, Pincel de Formatação, fonte e tamanho, aumentar/diminuir fonte, Maiúsculas e Minúsculas, sublinhados (duplo, ondulado…), cores no padrão do Word, realce, marcadores e numeração (a), 1), I.…), recuo, espaçamento, sombreamento e bordas de parágrafo, estilos (Título 1, Citação…), Localizar e Substituir, diálogos Fonte e Parágrafo.
   - *Inserir*: tabela (grade, diálogo e tabelas rápidas), imagens, caixa de texto, linhas para resposta, equações (fração, raízes) e símbolos por categoria.

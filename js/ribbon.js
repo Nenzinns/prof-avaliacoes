@@ -451,6 +451,8 @@ export function createRibbon() {
     ativar,
     atualizar,
     mostrarAba,
+    /** Coloca um botão extra na barra das guias, logo depois de "Inserir". */
+    adicionarNaBarra(botaoExtra) { botoesAba.inserir.after(botaoExtra); },
     colar: (e) => colar(e),
     dialogoFonte, dialogoParagrafo,
   };

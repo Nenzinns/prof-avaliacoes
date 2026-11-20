@@ -1,9 +1,9 @@
-import { h, toast, modal, baixar, escolherArquivo } from './ui.js';
-import { exportarTudo, importarTudo } from './db.js';
+import { h } from './ui.js';
 import * as leitor from './leitor.js';
 import * as gabaritos from './gabaritos.js';
 import * as questoes from './questoes.js';
 import * as avaliacoes from './avaliacoes.js';
+import { telaConfiguracoes } from './configuracoes.js';
 
 const app = document.getElementById('app');
 const tituloEl = document.getElementById('titulo-tela');
@@ -14,7 +14,7 @@ let limparTela = null; // função de limpeza da tela atual (ex.: parar câmera)
 
 /** Contexto passado a cada tela. */
 export const tela = {
-  titulo(t) { tituloEl.textContent = t; document.title = t ? `${t} — Prof` : 'Prof — Avaliações'; },
+  titulo(t) { tituloEl.textContent = t; document.title = 'Prof'; },
   acoes(...els) { acoesEl.replaceChildren(...els); },
   aoSair(fn) { limparTela = fn; },
   ir(rota) { location.hash = rota; },
@@ -22,6 +22,7 @@ export const tela = {
 
 const rotas = [
   [/^\/?$/, inicio],
+  [/^\/configuracoes$/, telaConfiguracoes],
   [/^\/leitor$/, leitor.telaLeitor],
   [/^\/leitor\/corrigir\/([^/]+)$/, leitor.telaCorrigir],
   [/^\/leitor\/resultados\/([^/]+)$/, leitor.telaResultados],
@@ -31,6 +32,7 @@ const rotas = [
   [/^\/leitor\/folhas\/([^/]+)$/, gabaritos.telaFolhas],
   [/^\/formatador$/, avaliacoes.telaFormatador],
   [/^\/formatador\/questoes$/, questoes.telaBanco],
+  [/^\/formatador\/avaliacoes$/, avaliacoes.telaAvaliacoes],
   [/^\/formatador\/questao\/([^/]+)$/, questoes.telaQuestao],
   [/^\/formatador\/avaliacao\/([^/]+)$/, avaliacoes.telaAvaliacao],
   [/^\/formatador\/imprimir\/([^/]+)$/, avaliacoes.telaImprimir],
@@ -67,7 +69,7 @@ voltarBtn.addEventListener('click', () => {
   // volta um nível lógico
   const pais = {
     corrigir: '/leitor', resultados: '/leitor', gabaritos: '/leitor', colecao: '/leitor/gabaritos',
-    questoes: '/formatador', questao: '/formatador/questoes', avaliacao: '/formatador',
+    questoes: '/formatador', questao: '/formatador/questoes', avaliacao: '/formatador', avaliacoes: '/formatador',
   };
   if (partes[1] === 'gabarito') return (location.hash = `/leitor/colecao/${partes[2]}`);
   if (partes[1] === 'folhas') return (location.hash = `/leitor/colecao/${partes[2]}`);
@@ -90,35 +92,7 @@ function inicio(app, tela) {
         h('a', { href: '#/formatador', class: 'botao-grande formatador' },
           h('span', { class: 'bg-icone', html: iconeFormatador }),
           h('span', { class: 'bg-titulo' }, 'Formatador de Avaliações'),
-          h('span', { class: 'bg-desc' }, 'Monte provas a partir do seu banco de questões'))),
-      h('div', { class: 'inicio-rodape' },
-        h('button', { class: 'btn btn-link', onclick: backup }, 'Backup e restauração dos dados'))));
-}
-
-async function backup() {
-  await modal({
-    titulo: 'Backup dos dados',
-    corpo: h('div', {},
-      h('p', {}, 'Os dados ficam salvos somente neste aparelho/navegador. Exporte um backup para guardar ou levar para outro aparelho.'),
-      h('div', { class: 'linha-botoes' },
-        h('button', {
-          class: 'btn btn-primary', onclick: async () => {
-            const dados = await exportarTudo();
-            baixar(`prof-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(dados));
-          },
-        }, 'Exportar backup'),
-        h('button', {
-          class: 'btn', onclick: async () => {
-            const [f] = await escolherArquivo('application/json,.json');
-            if (!f) return;
-            try {
-              await importarTudo(JSON.parse(await f.text()));
-              toast('Backup importado com sucesso!', 'ok');
-              navegar();
-            } catch (e) { toast(e.message, 'erro'); }
-          },
-        }, 'Importar backup'))),
-  });
+          h('span', { class: 'bg-desc' }, 'Monte provas a partir das suas questões')))));
 }
 
 const iconeLeitor = `<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 18V10a2 2 0 0 1 2-2h8M46 8h8a2 2 0 0 1 2 2v8M56 46v8a2 2 0 0 1-2 2h-8M18 56h-8a2 2 0 0 1-2-2v-8"/><circle cx="22" cy="24" r="4" fill="currentColor"/><circle cx="34" cy="24" r="4"/><circle cx="46" cy="24" r="4"/><circle cx="22" cy="36" r="4"/><circle cx="34" cy="36" r="4" fill="currentColor"/><circle cx="46" cy="36" r="4"/><path d="M14 46h36" stroke-dasharray="2 5"/></svg>`;

@@ -418,3 +418,37 @@ details.cartao[open] > summary { margin-bottom: 12px; }
   .fmt-gal-barra { grid-template-columns: repeat(2, 1fr); }
   .fmt-dlg { grid-template-columns: 1fr; }
 }
+
+/* ---------- Configurações ---------- */
+.cfg { max-width: 720px; margin: 0 auto; }
+.cfg-tit { margin: 0 0 4px; font-size: 18px; }
+.cfg-chave { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 6px; }
+.cfg-chave .inp { flex: 1 1 260px; min-width: 0; font-family: ui-monospace, Consolas, monospace; }
+.cfg-status { margin: 6px 0 10px; font-size: 14px; color: var(--texto-2); }
+.cfg-status.ok { color: var(--ver); font-weight: 600; }
+.cfg-status.erro { color: var(--verm); }
+#btn-config { color: #fff; text-decoration: none; }
+#btn-config svg { width: 22px; height: 22px; }
+.btn-ia { gap: 6px; }
+.ia-item { display: flex; gap: 10px; align-items: flex-start; }
+.ia-item input[type=checkbox] { margin-top: 6px; width: 18px; height: 18px; flex: none; }
+.ia-item .q-preview { flex: 1; min-width: 0; }
+.cfg-fila { list-style: none; margin: 12px 0 4px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.cfg-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--borda); border-radius: 10px; background: var(--sup); }
+.cfg-item.arrastando { box-shadow: 0 6px 18px rgba(20,30,60,.18); border-color: var(--pri-2); position: relative; z-index: 2; }
+.cfg-alca { cursor: grab; touch-action: none; user-select: none; font-size: 20px; line-height: 1; color: var(--texto-2); padding: 6px 4px; }
+.cfg-item.arrastando .cfg-alca { cursor: grabbing; }
+.cfg-num { width: 24px; height: 24px; border-radius: 50%; background: var(--pri-claro); color: var(--pri); font-weight: 700; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.cfg-info { flex: 1; min-width: 0; }
+.cfg-nome { font-weight: 600; }
+.cfg-sub { font-size: 13px; color: var(--texto-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, Consolas, monospace; }
+.cfg-vazio { color: var(--texto-2); font-size: 14px; }
+body:not([data-rota="inicio"]) #btn-config { display: none; }
+#btn-voltar svg { width: 22px; height: 22px; }
+.fav-btn { border: 0; background: none; cursor: pointer; font-size: 20px; line-height: 1; padding: 4px; color: #c9cede; }
+.fav-btn.on { color: #e0a800; }
+.fav-btn:hover { color: #e0a800; }
+.grupo-tit { font-size: 13px; font-weight: 700; color: var(--texto-2); text-transform: uppercase; letter-spacing: .4px; margin: 14px 0 8px; }
+.secao-head + .grupo-tit { margin-top: 0; }
+.ver-todas { margin-top: 10px; display: inline-block; }
+.cfg-apagar { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 14px; }

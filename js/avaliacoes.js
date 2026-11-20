@@ -1,6 +1,6 @@
 import { h, uid, toast, modal, confirmar, campo, vazio, LETRAS, esc, textoDeHtml, dataBR, lerImagem, escolherArquivo, embaralhar } from './ui.js';
 import { db } from './db.js';
-import { listaFiltravel, previewQuestao } from './questoes.js';
+import { listaFiltravel, previewQuestao, botaoFavorito, destaques } from './questoes.js';
 import { svgFolha, svgCompacto, maxQuestoes } from './omr-layout.js';
 import { imprimirPaginas } from './gabaritos.js';
 import { editarCabecalho, htmlCabecalho } from './cabecalho.js';
@@ -118,47 +118,79 @@ async function carregarQuestoes() {
 }
 
 // ---------------------------------------------------------------- Tela inicial do formatador
+function itemAvaliacao(a, tela, aoMudar) {
+  return h('div', { class: 'item' },
+    botaoFavorito('avaliacoes', a, aoMudar),
+    h('a', { class: 'item-corpo', href: `#/formatador/avaliacao/${a.id}`, style: { textDecoration: 'none', color: 'inherit' } },
+      h('div', { class: 'item-titulo' }, a.titulo || 'Sem título'),
+      h('div', { class: 'item-sub' }, [a.disciplina, a.turma, `${a.questoes.length} questões`, a.tipos > 1 ? `${a.tipos} tipos` : null, 'editada em ' + dataBR(a.atualizadoEm)].filter(Boolean).join(' · '))),
+    h('div', { class: 'linha-botoes' },
+      h('a', { class: 'btn btn-sm', href: `#/formatador/imprimir/${a.id}` }, '🖨️ Imprimir'),
+      h('a', { class: 'btn btn-sm btn-primary', href: `#/formatador/avaliacao/${a.id}` }, 'Abrir'),
+      h('button', {
+        class: 'btn btn-sm', title: 'Duplicar', onclick: async () => {
+          const c = { ...structuredClone(a), id: uid(), titulo: a.titulo + ' (cópia)', colecaoId: null, criadoEm: 0, favorito: false };
+          await db.put('avaliacoes', c); tela.ir(`/formatador/avaliacao/${c.id}`);
+        },
+      }, 'Duplicar'),
+      h('button', {
+        class: 'btn btn-sm', title: 'Excluir', onclick: async (e) => {
+          if (!(await confirmar(`Excluir a avaliação "${a.titulo}"? As questões continuam salvas.`, { ok: 'Excluir', perigo: true }))) return;
+          await db.del('avaliacoes', a.id); e.target.closest('.item').remove(); toast('Avaliação excluída');
+        },
+      }, '🗑')));
+}
+
+function itemQuestaoResumo(q, aoMudar) {
+  return h('div', { class: 'item' },
+    botaoFavorito('questoes', q, aoMudar),
+    h('a', { class: 'item-corpo', href: `#/formatador/questao/${q.id}`, style: { textDecoration: 'none', color: 'inherit' } },
+      h('div', { class: 'item-texto' }, textoDeHtml(q.comando) || '(imagem/tabela)'),
+      h('div', { class: 'item-sub' }, [q.disciplina, q.assunto].filter(Boolean).join(' · '))));
+}
+
+/** Favoritos e recentes, com subtítulos só quando os dois grupos existem. */
+function grupos({ favoritos, recentes }, render) {
+  const out = [];
+  if (favoritos.length) out.push(h('div', { class: 'grupo-tit' }, '★ Favoritos'), h('div', { class: 'lista' }, favoritos.map(render)));
+  if (recentes.length) out.push(favoritos.length ? h('div', { class: 'grupo-tit' }, 'Editados recentemente') : null, h('div', { class: 'lista' }, recentes.map(render)));
+  return out;
+}
+
 export async function telaFormatador(app, tela) {
   tela.titulo('Formatador de Avaliações');
-  const avs = (await db.getAll('avaliacoes')).sort((a, b) => b.atualizadoEm - a.atualizadoEm);
+  const avs = await db.getAll('avaliacoes');
   const qs = await db.getAll('questoes');
-  tela.acoes(h('a', { class: 'btn btn-primary', href: '#/formatador/avaliacao/nova' }, '+ Nova avaliação'));
+  const recarregar = () => { app.replaceChildren(); telaFormatador(app, tela); };
+  const novaAv = () => h('a', { class: 'btn btn-primary', href: '#/formatador/avaliacao/nova' }, '+ Nova avaliação');
 
+  const dAv = destaques(avs);
+  const mostradasAv = dAv.favoritos.length + dAv.recentes.length;
   app.append(h('div', { class: 'secao' },
-    h('div', { class: 'secao-head' }, h('h2', {}, 'Avaliações geradas'), h('a', { class: 'btn btn-primary', href: '#/formatador/avaliacao/nova' }, '+ Criar nova avaliação')),
-    avs.length ? h('div', { class: 'lista' }, avs.map((a) => h('div', { class: 'item' },
-      h('span', { style: { fontSize: '26px' } }, '📄'),
-      h('a', { class: 'item-corpo', href: `#/formatador/avaliacao/${a.id}`, style: { textDecoration: 'none', color: 'inherit' } },
-        h('div', { class: 'item-titulo' }, a.titulo || 'Sem título'),
-        h('div', { class: 'item-sub' }, [a.disciplina, a.turma, `${a.questoes.length} questões`, a.tipos > 1 ? `${a.tipos} tipos` : null, 'editada em ' + dataBR(a.atualizadoEm)].filter(Boolean).join(' · '))),
-      h('div', { class: 'linha-botoes' },
-        h('a', { class: 'btn btn-sm', href: `#/formatador/imprimir/${a.id}` }, '🖨️ Imprimir'),
-        h('a', { class: 'btn btn-sm btn-primary', href: `#/formatador/avaliacao/${a.id}` }, 'Abrir'),
-        h('button', {
-          class: 'btn btn-sm', title: 'Duplicar', onclick: async () => {
-            const c = { ...structuredClone(a), id: uid(), titulo: a.titulo + ' (cópia)', colecaoId: null, criadoEm: 0 };
-            await db.put('avaliacoes', c); tela.ir(`/formatador/avaliacao/${c.id}`);
-          },
-        }, 'Duplicar'),
-        h('button', {
-          class: 'btn btn-sm', title: 'Excluir', onclick: async (e) => {
-            if (!(await confirmar(`Excluir a avaliação "${a.titulo}"? As questões continuam no banco.`, { ok: 'Excluir', perigo: true }))) return;
-            await db.del('avaliacoes', a.id); e.target.closest('.item').remove(); toast('Avaliação excluída');
-          },
-        }, '🗑'))))) : vazio('📄', 'Nenhuma avaliação gerada ainda.', h('a', { class: 'btn btn-primary', href: '#/formatador/avaliacao/nova' }, '+ Criar nova avaliação'))));
+    h('div', { class: 'secao-head' }, h('h2', {}, 'Avaliações'), novaAv()),
+    avs.length ? [
+      grupos(dAv, (a) => itemAvaliacao(a, tela, recarregar)),
+      avs.length > mostradasAv ? h('a', { class: 'btn btn-link ver-todas', href: '#/formatador/avaliacoes' }, `Ver todas as avaliações (${avs.length})`) : null,
+    ] : vazio('📄', 'Nenhuma avaliação criada ainda.')));
 
+  const dQ = destaques(qs);
   const disc = [...new Set(qs.map((q) => q.disciplina).filter(Boolean))];
   app.append(h('div', { class: 'secao' },
-    h('div', { class: 'secao-head' }, h('h2', {}, 'Banco de questões')),
-    h('div', { class: 'cartao' },
-      h('div', { class: 'linha-botoes' },
-        h('div', { class: 'item-corpo' },
-          h('div', { class: 'item-titulo', style: { fontSize: '18px' } }, `${qs.length} questão(ões) no banco`),
-          h('div', { class: 'item-sub' }, disc.length ? disc.slice(0, 8).map((d) => h('span', { class: 'chip' }, d)) : 'Cadastre questões para montar suas avaliações.')),
-        h('a', { class: 'btn', href: '#/formatador/questoes' }, '📚 Abrir banco de questões'),
-        h('a', { class: 'btn btn-primary', href: '#/formatador/questao/nova' }, '+ Adicionar nova questão')),
-      qs.length ? h('div', { class: 'lista', style: { marginTop: '14px' } }, qs.sort((a, b) => b.atualizadoEm - a.atualizadoEm).slice(0, 4).map((q) => h('a', { class: 'item', href: `#/formatador/questao/${q.id}` },
-        h('div', { class: 'item-corpo' }, h('div', { class: 'item-texto' }, textoDeHtml(q.comando) || '(imagem/tabela)'), h('div', { class: 'item-sub' }, [q.disciplina, q.assunto].filter(Boolean).join(' · ')))))) : null)));
+    h('div', { class: 'secao-head' }, h('h2', {}, 'Questões'),
+      h('a', { class: 'btn btn-primary', href: '#/formatador/questao/nova' }, '+ Nova questão')),
+    qs.length ? [
+      disc.length ? h('div', { class: 'item-sub', style: { marginBottom: '10px' } }, disc.slice(0, 8).map((d) => h('span', { class: 'chip' }, d))) : null,
+      grupos(dQ, (q) => itemQuestaoResumo(q, recarregar)),
+      h('a', { class: 'btn btn-link ver-todas', href: '#/formatador/questoes' }, `Ver todas as questões (${qs.length})`),
+    ] : vazio('📝', 'Cadastre questões para montar suas avaliações.')));
+}
+
+/** Lista completa das avaliações. */
+export async function telaAvaliacoes(app, tela) {
+  tela.titulo('Todas as avaliações');
+  const avs = (await db.getAll('avaliacoes')).sort((a, b) => (b.favorito ? 1 : 0) - (a.favorito ? 1 : 0) || b.atualizadoEm - a.atualizadoEm);
+  app.append(h('div', { class: 'secao-head' }, h('h2', {}, `${avs.length} avaliação(ões)`), h('a', { class: 'btn btn-primary', href: '#/formatador/avaliacao/nova' }, '+ Nova avaliação')));
+  app.append(avs.length ? h('div', { class: 'lista' }, avs.map((a) => itemAvaliacao(a, tela))) : vazio('📄', 'Nenhuma avaliação criada ainda.'));
 }
 
 // ---------------------------------------------------------------- Editor da avaliação
@@ -228,7 +260,7 @@ export async function telaAvaliacao(app, tela, id) {
 
   const adicionarDoBanco = async () => {
     const todas = Object.values(qmap).sort((a, b) => b.atualizadoEm - a.atualizadoEm);
-    if (!todas.length) { toast('O banco de questões está vazio. Crie uma questão primeiro.'); return; }
+    if (!todas.length) { toast('Nenhuma questão cadastrada. Crie uma questão primeiro.'); return; }
     const escolhidas = new Set();
     const contador = h('b', {}, '0');
     const { el } = listaFiltravel(todas, (q) => {
@@ -240,7 +272,7 @@ export async function telaAvaliacao(app, tela, id) {
           h('div', { class: 'item-sub' }, [q.disciplina, q.assunto, q.serie, q.dificuldade, ja ? 'já está na avaliação' : null].filter(Boolean).join(' · '))),
         h('button', { class: 'btn btn-sm', onclick: (e) => { e.preventDefault(); modal({ titulo: 'Questão', largo: true, corpo: previewQuestao(q) }); } }, 'Ver'));
     });
-    const r = await modal({ titulo: 'Adicionar questões do banco', largo: true, corpo: el, acoes: [{ label: 'Cancelar', value: null }, { label: h('span', {}, 'Adicionar (', contador, ')'), primary: true, value: 'ok' }] });
+    const r = await modal({ titulo: 'Adicionar questões salvas', largo: true, corpo: el, acoes: [{ label: 'Cancelar', value: null }, { label: h('span', {}, 'Adicionar (', contador, ')'), primary: true, value: 'ok' }] });
     if (r !== 'ok' || !escolhidas.size) return;
     av.questoes.push(...escolhidas);
     invalidar(); renderQuestoes();
@@ -324,7 +356,7 @@ export async function telaAvaliacao(app, tela, id) {
         h('label', { class: 'campo-check' }, (() => { const c = h('input', { type: 'checkbox', checked: av.mostrarCampos }); c.addEventListener('change', () => { av.mostrarCampos = c.checked; agendar(); }); return c; })(), 'Campos para o aluno preencher (nome, nº, data, nota)')),
       h('div', { class: 'secao' },
         h('div', { class: 'secao-head' }, h('h2', {}, 'Questões '), resumo,
-          h('button', { class: 'btn', onclick: adicionarDoBanco }, '📚 Adicionar do banco'),
+          h('button', { class: 'btn', onclick: adicionarDoBanco }, '📚 Adicionar questões salvas'),
           h('a', { class: 'btn btn-primary', href: `#/formatador/questao/nova?avaliacao=${av.id}`, onclick: () => salvar() }, '+ Nova questão')),
         listaQ)),
     h('div', {},

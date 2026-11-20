@@ -272,3 +272,5 @@
   .ed-alvo { display: none; }
   .ed-painel { min-height: 92px; }
 }
+.ed-abas .ed-btn-ia { margin: 0 4px 0 8px; align-self: center; padding: 4px 10px; font-size: 13px; color: var(--pri); border-color: var(--pri-claro); background: var(--pri-claro); }
+.ed-abas .ed-btn-ia:hover { background: #dce1fa; }

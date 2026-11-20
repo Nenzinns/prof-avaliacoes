@@ -2,6 +2,7 @@ import { h, uid, toast, modal, confirmar, campo, vazio, LETRAS, textoDeHtml, dat
 import { db } from './db.js';
 import { createEditor } from './editor.js';
 import { createRibbon } from './ribbon.js';
+import { dialogoGerar } from './ia.js';
 
 export const DIFICULDADES = ['Fácil', 'Média', 'Difícil'];
 
@@ -12,6 +13,32 @@ export function previewQuestao(q, { alternativas = true } = {}) {
     alternativas ? h('ol', { class: 'q-alts' },
       [q.solucao, ...(q.distratores || [])].map((alt, i) => h('li', { class: i === 0 ? 'correta' : '' },
         h('span', {}, `${LETRAS[i]}) `), h('span', { class: 'q-conteudo', style: { display: 'inline-block', verticalAlign: 'top' }, html: alt || '<i>(vazia)</i>' }), i === 0 ? ' ✔' : ''))) : null);
+}
+
+/** Estrela que marca/desmarca o item como favorito (sem mudar a data de edição). */
+export function botaoFavorito(store, obj, aoMudar) {
+  const b = h('button', { type: 'button', class: 'fav-btn' + (obj.favorito ? ' on' : '') });
+  const pintar = () => {
+    b.classList.toggle('on', !!obj.favorito);
+    b.textContent = obj.favorito ? '★' : '☆';
+    b.title = obj.favorito ? 'Remover dos favoritos' : 'Marcar como favorito';
+    b.setAttribute('aria-pressed', obj.favorito ? 'true' : 'false');
+  };
+  b.addEventListener('click', async (ev) => {
+    ev.preventDefault(); ev.stopPropagation();
+    obj.favorito = !obj.favorito;
+    await db.put(store, obj, { manterData: true });
+    pintar();
+    aoMudar?.();
+  });
+  pintar();
+  return b;
+}
+
+/** Favoritos + os 3 últimos editados (sem repetir), para as telas de resumo. */
+export function destaques(itens) {
+  const ordem = [...itens].sort((a, b) => b.atualizadoEm - a.atualizadoEm);
+  return { favoritos: ordem.filter((x) => x.favorito), recentes: ordem.filter((x) => !x.favorito).slice(0, 3) };
 }
 
 function metaChips(q) {
@@ -43,17 +70,48 @@ export function listaFiltravel(questoes, renderItem) {
   return { el: h('div', {}, h('div', { class: 'busca' }, busca, selDisc, selAss, selDif), contador, lista), render };
 }
 
+const ICONE_IA = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9zM19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9zM5 15l.7 1.8 1.8.7-1.8.7L5 20l-.7-1.8-1.8-.7 1.8-.7z"/></svg>';
+const botaoIA = (onclick, extra = '') => h('button', { class: `btn btn-ia ${extra}`, type: 'button', onclick, onmousedown: (ev) => ev.preventDefault() },
+  h('span', { html: ICONE_IA, style: { display: 'inline-flex' } }), 'Gerar com IA');
+
+/** Mostra as questões geradas para o professor escolher quais salvar. Retorna quantas salvou. */
+async function revisarGeradas(geradas) {
+  const marcadas = new Set(geradas.map((_, i) => i));
+  const corpo = h('div', { class: 'lista' },
+    h('p', { class: 'dica' }, 'Confira as questões (a correta está em verde). Desmarque as que não quiser; as salvas podem ser editadas depois em Questões.'),
+    geradas.map((q, i) => h('label', { class: 'item ia-item' },
+      h('input', { type: 'checkbox', checked: true, onchange: (e) => (e.target.checked ? marcadas.add(i) : marcadas.delete(i)) }),
+      previewQuestao(q))));
+  const ok = await modal({ titulo: `${geradas.length} questão(ões) geradas`, largo: true, corpo,
+    acoes: [{ label: 'Descartar', value: false }, { label: 'Salvar selecionadas', primary: true, value: true }] });
+  if (!ok) return 0;
+  let n = 0;
+  for (const i of marcadas) { await db.put('questoes', { ...geradas[i], id: uid() }); n++; }
+  return n;
+}
+
 export async function telaBanco(app, tela) {
-  tela.titulo('Banco de questões');
-  tela.acoes(h('a', { class: 'btn btn-primary', href: '#/formatador/questao/nova' }, '+ Nova questão'));
+  tela.titulo('Questões');
   const questoes = (await db.getAll('questoes')).sort((a, b) => b.atualizadoEm - a.atualizadoEm);
-  app.append(h('div', { class: 'secao-head' }, h('h2', {}, 'Banco de questões'), h('a', { class: 'btn btn-primary', href: '#/formatador/questao/nova' }, '+ Adicionar nova questão')));
+  const gerar = async () => {
+    const ultima = questoes[0] || {};
+    const geradas = await dialogoGerar({ inicial: { disciplina: ultima.disciplina, serie: ultima.serie }, irConfig: () => tela.ir('/configuracoes') });
+    if (!geradas) return;
+    const n = await revisarGeradas(geradas);
+    if (!n) return;
+    toast(`${n} questão(ões) salvas`, 'ok');
+    app.replaceChildren();
+    telaBanco(app, tela);
+  };
+  const novaBtn = () => h('a', { class: 'btn btn-primary', href: '#/formatador/questao/nova' }, '+ Nova questão');
+  app.append(h('div', { class: 'linha-botoes', style: { marginBottom: '12px' } }, novaBtn(), botaoIA(gerar)));
   if (!questoes.length) {
-    app.append(vazio('📝', 'Seu banco de questões está vazio.', h('a', { class: 'btn btn-primary', href: '#/formatador/questao/nova' }, '+ Adicionar nova questão')));
+    app.append(vazio('📝', 'Nenhuma questão cadastrada ainda.', h('div', { class: 'linha-botoes', style: { justifyContent: 'center' } }, novaBtn(), botaoIA(gerar))));
     return;
   }
   const { el } = listaFiltravel(questoes, (q) => {
     const it = h('div', { class: 'item', style: { alignItems: 'flex-start' } },
+      botaoFavorito('questoes', q),
       h('div', { class: 'item-corpo' },
         h('div', {}, metaChips(q)),
         h('div', { class: 'item-texto' }, textoDeHtml(q.comando) || '(questão sem texto — contém imagem/tabela)'),
@@ -90,7 +148,8 @@ export async function telaQuestao(app, tela, id, params) {
   const todas = await db.getAll('questoes');
   const dl = (idL, campo) => h('datalist', { id: idL }, [...new Set(todas.map((x) => x[campo]).filter(Boolean))].map((v) => h('option', { value: v })));
 
-  const inp = (campoQ, ph, lista) => h('input', { value: q[campoQ] || '', placeholder: ph, list: lista, oninput: (e) => { q[campoQ] = e.target.value; agendar(); } });
+  const camposEl = {};
+  const inp = (campoQ, ph, lista) => (camposEl[campoQ] = h('input', { value: q[campoQ] || '', placeholder: ph, list: lista, oninput: (e) => { q[campoQ] = e.target.value; agendar(); } }));
   const selDif = h('select', { onchange: (e) => { q.dificuldade = e.target.value; agendar(); } }, h('option', { value: '' }, '—'), DIFICULDADES.map((d) => h('option', { selected: q.dificuldade === d }, d)));
 
   // uma única faixa de opções (como no Word) que age no campo onde está o cursor
@@ -130,6 +189,26 @@ export async function telaQuestao(app, tela, id, params) {
     }));
   };
   renderDist();
+
+  const gerarComIA = async () => {
+    coletar();
+    const [g] = (await dialogoGerar({
+      umaSo: true, irConfig: () => tela.ir('/configuracoes'),
+      inicial: { disciplina: q.disciplina, assunto: q.assunto, serie: q.serie, dificuldade: q.dificuldade, alternativas: Math.max(2, Math.min(6, 1 + distratores.length)) },
+    })) || [];
+    if (!g) return;
+    const temConteudo = q.comando || q.solucao || q.distratores.some(Boolean);
+    if (temConteudo && !(await confirmar('Substituir o conteúdo atual desta questão pela questão gerada?', { ok: 'Substituir' }))) return;
+    edCmd.setHTML(g.comando);
+    edSol.setHTML(g.solucao);
+    distratores.splice(0, distratores.length, ...g.distratores.map((d) => novoDistrator(d)));
+    renderDist();
+    for (const c of ['disciplina', 'assunto', 'serie']) if (!q[c] && g[c]) { q[c] = g[c]; camposEl[c].value = g[c]; }
+    if (!q.dificuldade && g.dificuldade) { q.dificuldade = g.dificuldade; selDif.value = g.dificuldade; }
+    agendar();
+    toast('Questão gerada. Confira e ajuste antes de salvar.', 'ok');
+  };
+  ribbon.adicionarNaBarra(botaoIA(gerarComIA, 'btn-sm ed-btn-ia'));
 
   const concluir = async () => {
     coletar();
