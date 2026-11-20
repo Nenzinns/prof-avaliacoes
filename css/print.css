@@ -85,8 +85,11 @@
 .qn-escuro .q-num span { background: #222; color: #fff; padding: 0 2mm; border-radius: 1mm; }
 .qn-circulo .q-num span { border: .8px solid #000; border-radius: 99px; min-width: 1.6em; padding: 0 1.2mm; text-align: center; }
 /* número na mesma linha do enunciado */
-.qn-linha .questao > .q-num { float: left; margin: 0 .45em 0 0; }
 .qn-linha .questao > .q-conteudo > :first-child { margin-top: 0; }
+/* o número entra no início do 1º parágrafo: não muda a altura da linha nem empurra as linhas de baixo */
+.q-num.q-num-linha { display: inline; margin: 0 .45em 0 0; text-indent: 0; }
+.q-num.q-num-linha > span { line-height: 1; vertical-align: baseline; }
+.qn-normal .q-num.q-num-linha { font-weight: normal; }
 /* alternativas */
 .alt-negrito .alt-letra { font-weight: bold; }
 .alts-duas .prova-alts { display: grid; grid-template-columns: 1fr 1fr; column-gap: 6mm; }

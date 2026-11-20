@@ -52,11 +52,29 @@ function estiloProva(av, F) {
     + ` --col-gap:${+F.espacoColunas || 0.8}cm; --col-rule:${F.linhaColunas ? '.5px solid #888' : '0 none transparent'}`;
 }
 
+/**
+ * Número "na mesma linha": entra como texto no início do 1º parágrafo do enunciado, para que as
+ * linhas seguintes voltem à margem (um número flutuante mais alto que a linha empurrava a 2ª linha).
+ * Se o enunciado não começa com texto (tabela, imagem…), o número fica acima.
+ */
+function numeroNaLinha(comando, rotulo) {
+  const tpl = document.createElement('template');
+  tpl.innerHTML = comando || '';
+  const primeiro = tpl.content.firstElementChild;
+  const num = `<span class="q-num q-num-linha"><span>${esc(rotulo)}</span></span>`;
+  if (!primeiro) return (comando || '').trim() ? `<p>${num}${comando}</p>` : null;
+  if (!/^(P|H[1-6]|DIV)$/.test(primeiro.tagName) || primeiro.querySelector(':scope > .q-fig:first-child, :scope > table')) return null;
+  primeiro.insertAdjacentHTML('afterbegin', num);
+  return tpl.innerHTML;
+}
+
 function questaoHtml(av, F, i, comando, alternativas) {
   const fmtAlt = ESTILOS_ALT[av.estiloAlt] || ESTILOS_ALT['a)'];
+  const rotulo = rotuloQuestao(F, i);
+  const comNumero = F.posNum === 'linha' ? numeroNaLinha(comando, rotulo) : null;
   return `<div class="questao">
-    <div class="q-num"><span>${esc(rotuloQuestao(F, i))}</span></div>
-    <div class="q-conteudo">${comando}</div>
+    ${comNumero ? '' : `<div class="q-num"><span>${esc(rotulo)}</span></div>`}
+    <div class="q-conteudo">${comNumero || comando}</div>
     <ol class="prova-alts">${alternativas.map((a, k) => `<li><span class="alt-letra">${fmtAlt(k)}</span><div class="q-conteudo">${a || ''}</div></li>`).join('')}</ol>
   </div>`;
 }
