@@ -452,3 +452,14 @@ body:not([data-rota="inicio"]) #btn-config { display: none; }
 .secao-head + .grupo-tit { margin-top: 0; }
 .ver-todas { margin-top: 10px; display: inline-block; }
 .cfg-apagar { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 14px; }
+
+/* ---------- Material anexado à IA ---------- */
+.campo-obs-topo { display: flex; align-items: center; gap: 8px; }
+.btn-clipe { width: 34px; height: 34px; padding: 0; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; color: var(--texto-2); }
+.btn-clipe:hover { color: var(--pri); }
+.campo-obs.arrastando textarea { outline: 2px dashed var(--pri); background: var(--pri-claro); }
+.anexos-lista:not(:empty) { margin-top: 4px; display: flex; flex-direction: column; gap: 6px; }
+.anexo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--pri-claro); border-radius: 8px; padding: 4px 4px 4px 10px; }
+.anexo-nome { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.anexo-info { white-space: nowrap; }
+.anexo .anexo-pag { width: 130px; padding: 4px 8px; font-size: 13px; }

@@ -1,4 +1,4 @@
-import { h, uid, toast, modal, confirmar, campo, vazio, LETRAS, dataBR, baixar, escolherArquivo } from './ui.js';
+import { h, uid, toast, modal, confirmar, campo, vazio, LETRAS, dataBR, baixar, escolherArquivo, carregarPdfJs } from './ui.js';
 import { db } from './db.js';
 import { lerFolha, paraCanvas, desenharResultado } from './omr-reader.js';
 
@@ -45,22 +45,6 @@ export function corrigir(col, gab, respostas) {
   respostas.forEach((r, q) => { if (gab.anuladas[q] || (r !== null && r >= 0 && r === gab.respostas[q])) acertos++; });
   const nota = Math.round((acertos / col.nQuestoes) * (col.notaMaxima ?? 10) * 100) / 100;
   return { acertos, nota };
-}
-
-let pdfjsPromise = null;
-function carregarPdfJs() {
-  if (pdfjsPromise) return pdfjsPromise;
-  pdfjsPromise = new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-    s.onload = () => {
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      resolve(window.pdfjsLib);
-    };
-    s.onerror = () => { pdfjsPromise = null; reject(new Error('Não foi possível carregar o leitor de PDF (verifique a internet).')); };
-    document.head.append(s);
-  });
-  return pdfjsPromise;
 }
 
 async function arquivosParaImagens(files) {

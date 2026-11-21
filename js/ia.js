@@ -3,6 +3,7 @@
 // (consultando a lista de modelos do serviço, sem mostrar nada ao usuário).
 // A chave fica salva só neste navegador (localStorage) e não entra no backup.
 import { h, modal, campo, esc } from './ui.js';
+import { ACEITOS, ehPdf, abrirPdf, tamanho, prepararAnexos } from './anexos.js';
 
 const CHAVE_LS = 'prof-ia';
 
@@ -63,7 +64,8 @@ async function pedir(url, opts) {
   if (!r.ok) {
     const msg = j?.error?.message || j?.message || (typeof j?.error === 'string' ? j.error : '') || txt.slice(0, 200);
     const e = new Error(
-      r.status === 401 || r.status === 403 || (r.status === 400 && /api[ _-]?key/i.test(msg)) ? 'A chave foi recusada pelo serviço de IA. Confira se ela foi copiada inteira.'
+      r.status === 413 || (r.status === 400 && /too large|too long|context.length|maximum context|tokens? (exceed|limit)/i.test(msg)) ? 'O material anexado é grande demais para este serviço de IA. Indique só as páginas necessárias ou use uma chave do Google Gemini.'
+        : r.status === 401 || r.status === 403 || (r.status === 400 && /api[ _-]?key/i.test(msg)) ? 'A chave foi recusada pelo serviço de IA. Confira se ela foi copiada inteira.'
         : r.status === 429 ? 'Limite de uso da IA atingido. Aguarde alguns minutos e tente de novo.'
           : r.status === 402 ? 'O serviço de IA informa que não há saldo/créditos nesta conta.'
             : r.status === 503 || r.status === 529 || r.status === 500 ? 'O serviço de IA está sobrecarregado agora. Tente de novo em alguns minutos.'
@@ -157,8 +159,10 @@ const SISTEMA = 'Você é um professor experiente que elabora questões de múlt
   'os distratores devem ser plausíveis, baseados em erros comuns dos alunos, e claramente incorretos para quem domina o conteúdo. ' +
   'Responda somente com JSON válido, sem texto antes ou depois e sem blocos de código.';
 
-function montarPedido(p) {
+function montarPedido(p, material) {
   const linhas = [
+    material?.texto && `Material de referência enviado pelo professor:\n<material>\n${material.texto}\n</material>\n`,
+    material?.imagens?.length && `As ${material.imagens.length} imagem(ns) anexada(s) também fazem parte do material de referência (páginas de livro, fotos, etc.).\n`,
     `Crie ${p.quantidade} questão(ões) de múltipla escolha.`,
     p.disciplina && `Disciplina: ${p.disciplina}`,
     p.assunto && `Assunto/conteúdo: ${p.assunto}`,
@@ -166,6 +170,8 @@ function montarPedido(p) {
     p.dificuldade && `Dificuldade: ${p.dificuldade}`,
     `Cada questão deve ter ${p.alternativas} alternativas: 1 correta e ${p.alternativas - 1} distratores.`,
     p.observacao && `Orientações do professor: ${p.observacao}`,
+    material && 'Elabore as questões com base no material de referência: use os conceitos, exemplos, a terminologia e o nível de aprofundamento dele, ' +
+      'sem cobrar conteúdo que não esteja no material (a menos que as orientações peçam). Os textos de apoio podem citar ou adaptar trechos do material.',
     '\nFormato da resposta (JSON):',
     '{"questoes":[{"comando":"enunciado da questão","correta":"texto da alternativa correta","distratores":["alternativa errada", "..."]}]}',
     '\nRegras: não escreva letras (A, B, C…) no início das alternativas; elas são colocadas pelo aplicativo. ' +
@@ -175,14 +181,14 @@ function montarPedido(p) {
   return linhas.filter(Boolean).join('\n');
 }
 
-async function chamar(cfg, pedido, sinal) {
+async function chamar(cfg, pedido, sinal, imagens = []) {
   const { provedor: prov, chave, modelo } = cfg;
   if (prov === 'gemini') {
     const j = await pedir(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelo)}:generateContent`, {
       method: 'POST', signal: sinal, headers: cabecalhos(prov, chave),
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SISTEMA }] },
-        contents: [{ role: 'user', parts: [{ text: pedido }] }],
+        contents: [{ role: 'user', parts: [...imagens.map((im) => ({ inlineData: { mimeType: im.mime, data: im.dados } })), { text: pedido }] }],
         generationConfig: { responseMimeType: 'application/json', temperature: 0.8 },
       }),
     });
@@ -191,7 +197,10 @@ async function chamar(cfg, pedido, sinal) {
     return (cand.content?.parts || []).map((p) => p.text || '').join('');
   }
   if (prov === 'anthropic') {
-    const corpo = { model: modelo, max_tokens: 16000, system: SISTEMA, messages: [{ role: 'user', content: pedido }] };
+    const conteudo = imagens.length
+      ? [...imagens.map((im) => ({ type: 'image', source: { type: 'base64', media_type: im.mime, data: im.dados } })), { type: 'text', text: pedido }]
+      : pedido;
+    const corpo = { model: modelo, max_tokens: 16000, system: SISTEMA, messages: [{ role: 'user', content: conteudo }] };
     const hdr = cabecalhos(prov, chave);
     // modelos que aceitam o desvio automático para outro modelo quando um filtro de segurança recusa
     if (/claude-(fable-5-[12]|opus-5(-5)?|sonnet-5-5)$/.test(modelo)) {
@@ -202,7 +211,10 @@ async function chamar(cfg, pedido, sinal) {
     if (j.stop_reason === 'refusal') throw new Error('A IA recusou o pedido. Tente reformular o assunto ou as orientações.');
     return (j.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
   }
-  const corpo = { model: modelo, messages: [{ role: 'system', content: SISTEMA }, { role: 'user', content: pedido }] };
+  const conteudo = imagens.length
+    ? [{ type: 'text', text: pedido }, ...imagens.map((im) => ({ type: 'image_url', image_url: { url: `data:${im.mime};base64,${im.dados}` } }))]
+    : pedido;
+  const corpo = { model: modelo, messages: [{ role: 'system', content: SISTEMA }, { role: 'user', content: conteudo }] };
   if (prov !== 'openrouter') corpo.response_format = { type: 'json_object' };
   const hdr = cabecalhos(prov, chave);
   if (prov === 'openrouter') hdr['X-Title'] = 'Prof';
@@ -258,6 +270,9 @@ function converter(dados, meta) {
   })).filter((q) => q.comando && q.solucao && q.distratores.length);
 }
 
+/** Serviços cujos modelos escolhidos aceitam imagens. */
+const LEEM_IMAGEM = ['gemini', 'anthropic', 'openai', 'mistral'];
+
 const LIMITE_MS = 150000; // tempo máximo de espera por modelo
 const OCUPADO = [429, 500, 503, 529];
 
@@ -269,14 +284,14 @@ function sinalComLimite(sinal) {
 }
 
 /** Tenta gerar com uma chave, passando pelos modelos dela. */
-async function gerarComChave(k, pedido, p, { sinal, progresso }) {
+async function gerarComChave(k, pedido, p, { sinal, progresso, imagens }) {
   if (!k.reservas) { Object.assign(k, await analisarChave(k.chave)); atualizarChave(k.id, k); } // formato antigo
   let modelos = [k.modelo, ...k.reservas], reconfigurou = false, ultimoErro = null;
   for (let i = 0; i < modelos.length; i++) {
     const modelo = modelos[i];
     if (i > 0) progresso?.(`O modelo ${modelos[i - 1]} não respondeu a tempo ou está ocupado. Tentando ${modelo}…`);
     try {
-      const txt = await chamar({ ...k, modelo }, pedido, sinalComLimite(sinal));
+      const txt = await chamar({ ...k, modelo }, pedido, sinalComLimite(sinal), imagens);
       const qs = converter(extrairJson(txt), p);
       if (!qs.length) throw new Error('A IA não devolveu nenhuma questão completa. Tente gerar de novo.');
       if (i > 0) atualizarChave(k.id, { modelo, reservas: modelos.filter((m) => m !== modelo) }); // usa primeiro o que funcionou
@@ -301,16 +316,26 @@ async function gerarComChave(k, pedido, p, { sinal, progresso }) {
  * demorar demais ou tiver sido desligado, passa para o modelo reserva; se a chave inteira falhar,
  * passa para a próxima chave. `sinal` cancela; `progresso(texto)` informa as trocas.
  */
-export async function gerarQuestoes(p, { sinal, progresso } = {}) {
-  const chaves = lerChaves();
+export async function gerarQuestoes(p, { sinal, progresso, material } = {}) {
+  let chaves = lerChaves();
   if (!chaves.length) throw new Error('Nenhuma chave de IA configurada.');
-  const pedido = montarPedido(p);
+  const imagens = material?.imagens || [];
+  if (imagens.length) {
+    // imagens (fotos, PDF digitalizado) só funcionam nos serviços que "enxergam"
+    const comVisao = chaves.filter((k) => LEEM_IMAGEM.includes(k.provedor));
+    if (!comVisao.length) {
+      throw new Error(`Imagens e PDFs digitalizados precisam de uma chave do Google Gemini, Anthropic (Claude), OpenAI ou Mistral. ` +
+        `Sua(s) chave(s) (${[...new Set(chaves.map((k) => NOMES[k.provedor]))].join(', ')}) só leem texto: envie PDF com texto, Word ou .txt.`);
+    }
+    chaves = comVisao;
+  }
+  const pedido = montarPedido(p, material);
   let ultimoErro = null;
   for (let n = 0; n < chaves.length; n++) {
     const k = chaves[n];
     if (n > 0) progresso?.(`A chave ${n} (${NOMES[chaves[n - 1].provedor] || ''}) falhou: ${ultimoErro?.message || ''} Tentando a chave ${n + 1} (${NOMES[k.provedor] || ''})…`);
     try {
-      return await gerarComChave(k, pedido, p, { sinal, progresso });
+      return await gerarComChave(k, pedido, p, { sinal, progresso, imagens });
     } catch (e) {
       if (sinal?.aborted) throw new Error('Geração cancelada.');
       ultimoErro = e;
@@ -346,6 +371,48 @@ export async function dialogoGerar({ inicial = {}, umaSo = false, irConfig } = {
     observacao: h('textarea', { class: 'inp', rows: 3, placeholder: 'Opcional. Ex.: questões contextualizadas, estilo ENEM, com tabela de dados…' }),
   };
   const aviso = h('p', { class: 'dica', role: 'status' });
+
+  // material de referência anexado (livro didático, apostila, slides, fotos de páginas…)
+  const anexos = [];
+  const listaAnexos = h('div', { class: 'anexos-lista' });
+  const desenharAnexos = () => {
+    listaAnexos.replaceChildren(...anexos.map((it) => h('div', { class: 'anexo' },
+      h('span', { class: 'anexo-nome', title: it.arquivo.name }, it.arquivo.name),
+      h('small', { class: 'dica anexo-info' }, it.info),
+      it.campoPaginas || null,
+      h('button', { type: 'button', class: 'icon-btn', 'aria-label': `Remover ${it.arquivo.name}`, title: 'Remover', onclick: () => { anexos.splice(anexos.indexOf(it), 1); desenharAnexos(); } }, '×'))));
+  };
+  const adicionar = (arquivos) => {
+    for (const arquivo of arquivos) {
+      if (anexos.some((a) => a.arquivo.name === arquivo.name && a.arquivo.size === arquivo.size)) continue;
+      const it = { arquivo, info: tamanho(arquivo.size) };
+      if (ehPdf(arquivo)) {
+        it.campoPaginas = h('input', { class: 'inp anexo-pag', placeholder: 'Páginas: todas', title: 'Páginas a usar. Ex.: 45-60 ou 12, 15-18', 'aria-label': `Páginas de ${arquivo.name}` });
+        it.pdf = abrirPdf(arquivo);
+        it.pdf.then((pdf) => { it.info = `${pdf.numPages} pág. · ${tamanho(arquivo.size)}`; desenharAnexos(); }, (e) => { it.info = e.message; desenharAnexos(); });
+        it.pdf.catch(() => {});
+      }
+      anexos.push(it);
+    }
+    desenharAnexos();
+  };
+  const seletor = h('input', { type: 'file', multiple: true, accept: ACEITOS, style: { display: 'none' }, onchange: () => { adicionar([...seletor.files]); seletor.value = ''; } });
+  const dica = 'Anexar material (livro didático, apostila, slides, fotos das páginas): PDF, Word, PowerPoint, texto ou imagem';
+  const btnClipe = h('button', {
+    type: 'button', class: 'btn btn-clipe', title: dica, 'aria-label': dica, onclick: () => seletor.click(),
+    html: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9"/></svg>',
+  });
+  // campo montado à mão (e não com <label>) para o botão não virar o alvo do rótulo
+  const campoObs = h('div', {
+    class: 'campo campo-obs',
+    ondragover: (e) => { if (e.dataTransfer?.types?.includes('Files')) { e.preventDefault(); campoObs.classList.add('arrastando'); } },
+    ondragleave: () => campoObs.classList.remove('arrastando'),
+    ondrop: (e) => { if (!e.dataTransfer?.files?.length) return; e.preventDefault(); campoObs.classList.remove('arrastando'); adicionar([...e.dataTransfer.files]); },
+  },
+  h('div', { class: 'campo-obs-topo' }, h('span', { class: 'campo-label' }, 'Orientações para a IA'), btnClipe),
+  f.observacao, seletor, listaAnexos);
+
   let resultado = null, controle = null, relogio = null;
   const parar = () => { clearInterval(relogio); relogio = null; };
   const ok = await modal({
@@ -355,16 +422,25 @@ export async function dialogoGerar({ inicial = {}, umaSo = false, irConfig } = {
         campo('Disciplina', f.disciplina), campo('Assunto / conteúdo', f.assunto),
         campo('Série / ano', f.serie), campo('Dificuldade', f.dificuldade),
         umaSo ? null : campo('Quantidade de questões', f.quantidade), campo('Alternativas por questão', f.alternativas)),
-      campo('Orientações para a IA', f.observacao),
+      campoObs,
       aviso),
     acoes: [{ label: 'Cancelar', value: false, onClick: () => { controle?.abort(); parar(); } }, {
       label: 'Gerar', primary: true, onClick: async () => {
-        if (!f.assunto.value.trim() && !f.observacao.value.trim()) { aviso.textContent = 'Informe pelo menos o assunto.'; return false; }
+        if (!f.assunto.value.trim() && !f.observacao.value.trim() && !anexos.length) { aviso.textContent = 'Informe pelo menos o assunto.'; return false; }
         const btnGerar = [...document.querySelectorAll('.modal-foot .btn')].find((b) => b.textContent === 'Gerar');
         btnGerar.disabled = true;
         controle = new AbortController();
+        let material = null, extra = '';
+        if (anexos.length) {
+          try {
+            material = await prepararAnexos(anexos.map((it) => ({ arquivo: it.arquivo, pdf: it.pdf, paginas: it.campoPaginas?.value })), (t) => { aviso.textContent = t; });
+          } catch (e) {
+            aviso.textContent = e.message; btnGerar.disabled = false; return false;
+          }
+          if (controle.signal.aborted) return false;
+          extra = material.avisos.join(' ');
+        }
         const inicio = Date.now();
-        let extra = '';
         const mostrar = () => {
           const s = Math.round((Date.now() - inicio) / 1000);
           aviso.textContent = `Gerando… ${s} s. A IA "pensa" antes de responder; pode levar até 1–2 minutos.${extra ? ' ' + extra : ''}`;
@@ -376,7 +452,7 @@ export async function dialogoGerar({ inicial = {}, umaSo = false, irConfig } = {
             disciplina: f.disciplina.value.trim(), assunto: f.assunto.value.trim(), serie: f.serie.value.trim(), dificuldade: f.dificuldade.value,
             quantidade: umaSo ? 1 : Math.max(1, Math.min(20, +f.quantidade.value || 5)), alternativas: +f.alternativas.value,
             observacao: f.observacao.value.trim(),
-          }, { sinal: controle.signal, progresso: (t) => { extra = t; mostrar(); } });
+          }, { sinal: controle.signal, material, progresso: (t) => { extra = t; mostrar(); } });
           parar();
           return true;
         } catch (e) {

@@ -148,3 +148,20 @@ export function embaralhar(arr) {
   }
   return a;
 }
+
+let pdfjsPromise = null;
+/** Carrega o pdf.js (sob demanda, da CDN). */
+export function carregarPdfJs() {
+  if (pdfjsPromise) return pdfjsPromise;
+  pdfjsPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload = () => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      resolve(window.pdfjsLib);
+    };
+    s.onerror = () => { pdfjsPromise = null; reject(new Error('Não foi possível carregar o leitor de PDF (verifique a internet).')); };
+    document.head.append(s);
+  });
+  return pdfjsPromise;
+}
