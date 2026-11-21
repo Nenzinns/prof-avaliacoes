@@ -471,3 +471,4 @@ body:not([data-rota="inicio"]) #btn-config { display: none; }
 .conta-foto { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex: none; }
 .conta-inicial { display: inline-flex; align-items: center; justify-content: center; background: var(--pri); color: #fff; font-weight: 700; font-size: 18px; }
 .conta-info { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.btn-link-perigo { color: var(--verm); }

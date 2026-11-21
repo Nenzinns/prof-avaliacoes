@@ -1,7 +1,7 @@
 // Geração de questões com IA usando a chave do próprio professor.
 // O serviço é reconhecido pelo formato da chave e o modelo é escolhido automaticamente
 // (consultando a lista de modelos do serviço, sem mostrar nada ao usuário).
-// A chave fica salva só neste navegador (localStorage) e não entra no backup.
+// A chave fica salva neste navegador (localStorage), não entra no backup e é sincronizada com a conta.
 import { h, modal, campo, esc } from './ui.js';
 import { ACEITOS, ehPdf, abrirPdf, tamanho, prepararAnexos } from './anexos.js';
 
@@ -19,6 +19,7 @@ export function lerChaves() {
 }
 function gravarChaves(lista) {
   try { lista.length ? localStorage.setItem(CHAVE_LS, JSON.stringify({ chaves: lista })) : localStorage.removeItem(CHAVE_LS); } catch { /* sem armazenamento */ }
+  window.dispatchEvent(new CustomEvent('prof-config-mudou', { detail: 'ia' })); // sincronização
 }
 export const temChave = () => lerChaves().length > 0;
 export function removerChave(id) { gravarChaves(lerChaves().filter((k) => k.id !== id)); }

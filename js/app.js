@@ -5,6 +5,7 @@ import * as questoes from './questoes.js';
 import * as avaliacoes from './avaliacoes.js';
 import { telaConfiguracoes } from './configuracoes.js';
 import { iniciarConta } from './conta.js';
+import { iniciarSincronizacao } from './sincronizacao.js';
 
 const app = document.getElementById('app');
 const tituloEl = document.getElementById('titulo-tela');
@@ -101,7 +102,14 @@ const iconeFormatador = `<svg viewBox="0 0 64 64" fill="none" stroke="currentCol
 
 window.addEventListener('hashchange', navegar);
 navegar();
-iniciarConta();
+iniciarConta().finally(iniciarSincronizacao);
+
+// chegou alteração de outro aparelho: atualiza as telas de lista (as de edição ficam como estão)
+const TELAS_DE_LISTA = /^\/?$|^\/formatador(\/questoes|\/avaliacoes)?$|^\/leitor(\/gabaritos)?$/;
+window.addEventListener('prof-dados-atualizados', () => {
+  const [caminho] = location.hash.replace(/^#/, '').split('?');
+  if (TELAS_DE_LISTA.test(caminho) && !document.querySelector('.modal-overlay')) navegar();
+});
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

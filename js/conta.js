@@ -1,7 +1,8 @@
 // Conta do professor (login) usando o Supabase.
 // Entrar com Google ou com um código de 6 dígitos enviado por e-mail.
 // A biblioteca do Supabase só é carregada quando necessária (ao abrir a conta ou se já houver login).
-import { h, modal, toast } from './ui.js';
+import { h, modal, toast, confirmar } from './ui.js';
+import { sincronizar, estadoSync, pendentes, apagarDadosDaNuvem } from './sincronizacao.js';
 
 const SUPABASE_URL = 'https://qsahfbtfmrsbzzjngjeh.supabase.co';
 // chave pública (publishable): pode ficar no app; a proteção dos dados é feita pelas regras do banco
@@ -170,6 +171,18 @@ async function dialogoEmail() {
 export function secaoConta() {
   const corpo = h('div');
   const sec = h('section', { class: 'cartao secao' }, h('h2', { class: 'cfg-tit' }, 'Conta'), corpo);
+  const linhaSync = h('p', { class: 'cfg-status', role: 'status' });
+  const mostrarSync = () => {
+    const e = estadoSync();
+    const hora = e.quando ? new Date(e.quando).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+    const n = pendentes();
+    linhaSync.className = 'cfg-status' + (e.fase === 'ok' && !n ? ' ok' : e.fase === 'erro' ? ' erro' : '');
+    linhaSync.textContent = e.fase === 'sincronizando' ? '⟳ Sincronizando…'
+      : e.fase === 'erro' ? '⚠ ' + e.msg
+        : e.fase === 'offline' ? `Sem internet. ${n ? `${n} alteração(ões) serão enviadas` : 'Sincroniza'} quando a conexão voltar.`
+          : e.fase === 'ok' ? (n ? `${n} alteração(ões) aguardando envio…` : `✓ Sincronizado${hora ? ' às ' + hora : ''}`)
+            : 'Aguardando sincronização…';
+  };
 
   const render = () => {
     const u = usuarioAtual;
@@ -185,10 +198,20 @@ export function secaoConta() {
               try { await sair(); toast('Você saiu da conta'); } catch (e) { toast(e.message, 'erro'); }
             },
           }, 'Sair')),
-        h('p', { class: 'dica' }, 'Em breve: sincronização das questões, avaliações e configurações entre os seus aparelhos.'));
+        linhaSync,
+        h('p', { class: 'dica' }, 'Questões, avaliações, gabaritos, chaves de IA e formatação padrão são sincronizados entre os aparelhos em que você entrar. Os resultados dos alunos ficam só em cada aparelho.'),
+        h('div', { class: 'linha-botoes' },
+          h('button', { class: 'btn btn-sm', type: 'button', onclick: () => sincronizar() }, 'Sincronizar agora'),
+          h('button', {
+            class: 'btn btn-sm btn-link-perigo', type: 'button', onclick: async () => {
+              if (!(await confirmar('Apagar da nuvem todas as questões, avaliações, gabaritos e configurações desta conta? Os dados deste aparelho continuam aqui, mas os outros aparelhos deixam de receber atualizações. Você sairá da conta.', { ok: 'Apagar da nuvem', perigo: true }))) return;
+              try { await apagarDadosDaNuvem(); await sair(); toast('Dados apagados da nuvem', 'ok'); } catch (e) { toast(e.message, 'erro'); }
+            },
+          }, 'Apagar meus dados da nuvem')));
+      mostrarSync();
     } else {
       corpo.replaceChildren(
-        h('p', { class: 'dica' }, 'Entre para, em breve, usar as suas questões, avaliações e configurações em qualquer aparelho. Sem conta, o Prof continua funcionando normalmente neste aparelho.'),
+        h('p', { class: 'dica' }, 'Entre para usar as suas questões, avaliações e configurações em qualquer aparelho. Sem conta, o Prof continua funcionando normalmente neste aparelho.'),
         h('div', { class: 'linha-botoes' },
           h('button', {
             class: 'btn btn-google', type: 'button', onclick: async (e) => {
@@ -206,6 +229,8 @@ export function secaoConta() {
 
   const aoMudar = () => { if (sec.isConnected) render(); else window.removeEventListener('prof-conta', aoMudar); };
   window.addEventListener('prof-conta', aoMudar);
+  const aoSync = () => { if (sec.isConnected) mostrarSync(); else window.removeEventListener('prof-sync-estado', aoSync); };
+  window.addEventListener('prof-sync-estado', aoSync);
   render();
   // garante o estado atualizado (sessão salva de outro acesso)
   if (!usuarioAtual && temSessaoSalva()) cliente().then((c) => c.auth.getSession()).then(({ data }) => { usuarioAtual = data.session?.user || null; render(); }).catch(() => {});

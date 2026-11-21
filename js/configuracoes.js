@@ -10,7 +10,7 @@ export function telaConfiguracoes(app, tela) {
   // ---------------------------------------------------------------- backup
   const backup = h('section', { class: 'cartao secao' },
     h('h2', { class: 'cfg-tit' }, 'Backup e restauração'),
-    h('p', { class: 'dica' }, 'Os dados ficam salvos somente neste aparelho/navegador. Exporte um backup para guardar ou levar para outro aparelho.'),
+    h('p', { class: 'dica' }, 'Exporte um backup para guardar uma cópia dos seus dados (inclusive os resultados dos alunos, que não vão para a nuvem).'),
     h('div', { class: 'linha-botoes' },
       h('button', {
         class: 'btn btn-primary', onclick: async () => {
@@ -114,7 +114,7 @@ export function telaConfiguracoes(app, tela) {
     lista, dicaFila,
     h('div', { class: 'cfg-chave' }, chave, mostrar, adicionar),
     status,
-    h('p', { class: 'dica' }, 'As chaves ficam salvas só neste aparelho e não vão no backup. Não salve chaves em computador compartilhado. ',
+    h('p', { class: 'dica' }, 'As chaves ficam salvas neste aparelho (e na sua conta, se você entrou) e não vão no backup. Não salve chaves em computador compartilhado. ',
       'Só o pedido (disciplina, assunto, série…) é enviado à IA; nenhum dado de aluno sai do aplicativo.'));
 
   render();
@@ -172,7 +172,7 @@ function secaoApagar(exportarBackup) {
   });
   return h('section', { class: 'cartao secao' },
     h('h2', { class: 'cfg-tit' }, 'Apagar dados'),
-    h('p', { class: 'dica' }, 'Escolha o que apagar deste aparelho. Os outros dados continuam como estão.'),
+    h('p', { class: 'dica' }, 'Escolha o que apagar deste aparelho. Os outros dados continuam como estão. Se você entrou na conta, questões, avaliações, gabaritos e chaves apagados aqui também são apagados dos outros aparelhos.'),
     h('div', { class: 'cfg-apagar' }, linhas),
     h('div', { class: 'linha-botoes' }, btn));
 }

@@ -67,12 +67,17 @@ export const CAMPOS_FORMATACAO = ['papel', 'margemPreset', 'margem', 'fonte', 't
 
 export function definirComoPadrao(av) {
   const dados = Object.fromEntries(CAMPOS_FORMATACAO.filter((k) => av[k] !== undefined).map((k) => [k, structuredClone(av[k])]));
-  try { localStorage.setItem(CHAVE_PADRAO, JSON.stringify(dados)); return true; } catch { return false; }
+  try { localStorage.setItem(CHAVE_PADRAO, JSON.stringify(dados)); } catch { return false; }
+  window.dispatchEvent(new CustomEvent('prof-config-mudou', { detail: 'formato' }));
+  return true;
 }
 export function padraoUsuario() {
   try { const s = localStorage.getItem(CHAVE_PADRAO); return s ? JSON.parse(s) : null; } catch { return null; }
 }
-export function restaurarPadraoABNT() { try { localStorage.removeItem(CHAVE_PADRAO); } catch { /* sem armazenamento */ } }
+export function restaurarPadraoABNT() {
+  try { localStorage.removeItem(CHAVE_PADRAO); } catch { /* sem armazenamento */ }
+  window.dispatchEvent(new CustomEvent('prof-config-mudou', { detail: 'formato' }));
+}
 
 /** Formatação inicial de uma nova avaliação: a do usuário (se definida) ou a ABNT. */
 export function formatacaoInicial() {
