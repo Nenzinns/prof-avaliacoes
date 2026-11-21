@@ -63,7 +63,7 @@ export function aplicarABNT(av) {
 const CHAVE_PADRAO = 'prof-formatacao-padrao';
 export const CAMPOS_FORMATACAO = ['papel', 'margemPreset', 'margem', 'fonte', 'tamanho', 'alinhamento', 'entreLinhas', 'espAntes', 'espDepois', 'recuo',
   'colunas', 'espacoColunas', 'linhaColunas', 'linhaDivisoria', 'espacoQuestoes', 'numPagina', 'posNumPagina', 'caixaTexto',
-  'rotulo', 'caixaRotulo', 'zeros', 'sufixo', 'estiloNum', 'posNum', 'estiloAlt', 'letraNegrito', 'dispoAlt'];
+  'rotulo', 'caixaRotulo', 'zeros', 'sufixo', 'estiloNum', 'posNum', 'estiloAlt', 'letraNegrito', 'dispoAlt', 'estiloLinha', 'estiloCab', 'valorQuestao', 'marcaDagua', 'corTexto', 'enunNegrito', 'enunItalico', 'tituloSublinhado'];
 
 export function definirComoPadrao(av) {
   const dados = Object.fromEntries(CAMPOS_FORMATACAO.filter((k) => av[k] !== undefined).map((k) => [k, structuredClone(av[k])]));

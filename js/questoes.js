@@ -74,8 +74,8 @@ const ICONE_IA = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentC
 const botaoIA = (onclick, extra = '') => h('button', { class: `btn btn-ia ${extra}`, type: 'button', onclick, onmousedown: (ev) => ev.preventDefault() },
   h('span', { html: ICONE_IA, style: { display: 'inline-flex' } }), 'Gerar com IA');
 
-/** Mostra as questões geradas para o professor escolher quais salvar. Retorna quantas salvou. */
-async function revisarGeradas(geradas) {
+/** Mostra as questões geradas para o professor escolher quais salvar. Retorna as questões salvas. */
+export async function revisarGeradas(geradas, { textoSalvar = 'Salvar selecionadas' } = {}) {
   const marcadas = new Set(geradas.map((_, i) => i));
   const corpo = h('div', { class: 'lista' },
     h('p', { class: 'dica' }, 'Confira as questões (a correta está em verde). Desmarque as que não quiser; as salvas podem ser editadas depois em Questões.'),
@@ -83,11 +83,11 @@ async function revisarGeradas(geradas) {
       h('input', { type: 'checkbox', checked: true, onchange: (e) => (e.target.checked ? marcadas.add(i) : marcadas.delete(i)) }),
       previewQuestao(q))));
   const ok = await modal({ titulo: `${geradas.length} questão(ões) geradas`, largo: true, corpo,
-    acoes: [{ label: 'Descartar', value: false }, { label: 'Salvar selecionadas', primary: true, value: true }] });
-  if (!ok) return 0;
-  let n = 0;
-  for (const i of marcadas) { await db.put('questoes', { ...geradas[i], id: uid() }); n++; }
-  return n;
+    acoes: [{ label: 'Descartar', value: false }, { label: textoSalvar, primary: true, value: true }] });
+  if (!ok) return [];
+  const salvas = [];
+  for (const i of [...marcadas].sort((x, y) => x - y)) { const q = { ...geradas[i], id: uid() }; await db.put('questoes', q); salvas.push(q); }
+  return salvas;
 }
 
 export async function telaBanco(app, tela) {
@@ -97,7 +97,7 @@ export async function telaBanco(app, tela) {
     const ultima = questoes[0] || {};
     const geradas = await dialogoGerar({ inicial: { disciplina: ultima.disciplina, serie: ultima.serie }, irConfig: () => tela.ir('/configuracoes') });
     if (!geradas) return;
-    const n = await revisarGeradas(geradas);
+    const n = (await revisarGeradas(geradas)).length;
     if (!n) return;
     toast(`${n} questão(ões) salvas`, 'ok');
     app.replaceChildren();
@@ -228,7 +228,6 @@ export async function telaQuestao(app, tela, id, params) {
   };
   const previa = () => { coletar(); modal({ titulo: 'Pré-visualização', largo: true, corpo: previewQuestao(q) }); };
 
-  tela.acoes(h('button', { class: 'btn', onclick: previa }, 'Pré-visualizar'), h('button', { class: 'btn btn-primary', onclick: concluir }, 'Salvar'));
   tela.aoSair(() => { if (salvoUmaVez || timer) salvar(); });
 
   app.append(

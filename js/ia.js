@@ -170,6 +170,8 @@ function montarPedido(p, material) {
     p.serie && `Série/ano: ${p.serie}`,
     p.dificuldade && `Dificuldade: ${p.dificuldade}`,
     `Cada questão deve ter ${p.alternativas} alternativas: 1 correta e ${p.alternativas - 1} distratores.`,
+    p.prova && 'As questões formam uma AVALIAÇÃO COMPLETA: cubra os principais tópicos do conteúdo de forma equilibrada, sem repetir o mesmo ponto, ' +
+      'com dificuldade progressiva (das mais simples às mais elaboradas) e enunciados independentes entre si.',
     p.observacao && `Orientações do professor: ${p.observacao}`,
     material && 'Elabore as questões com base no material de referência: use os conceitos, exemplos, a terminologia e o nível de aprofundamento dele, ' +
       'sem cobrar conteúdo que não esteja no material (a menos que as orientações peçam). Os textos de apoio podem citar ou adaptar trechos do material.',
@@ -351,7 +353,7 @@ export async function gerarQuestoes(p, { sinal, progresso, material } = {}) {
  * Formulário de geração. `inicial`: valores (disciplina, assunto…); `umaSo`: gera 1 questão (editor).
  * Retorna a lista de questões geradas ou null.
  */
-export async function dialogoGerar({ inicial = {}, umaSo = false, irConfig } = {}) {
+export async function dialogoGerar({ inicial = {}, umaSo = false, prova = false, irConfig } = {}) {
   if (!temChave()) {
     const ir = await modal({
       titulo: 'Gerar com IA',
@@ -367,9 +369,9 @@ export async function dialogoGerar({ inicial = {}, umaSo = false, irConfig } = {
     assunto: inp('assunto', 'Ex.: Frações'),
     serie: inp('serie', 'Ex.: 7º ano'),
     dificuldade: h('select', { class: 'inp' }, h('option', { value: '' }, '—'), ['Fácil', 'Média', 'Difícil'].map((d) => h('option', { selected: inicial.dificuldade === d }, d))),
-    quantidade: h('input', { class: 'inp', type: 'number', min: 1, max: 20, value: 5 }),
+    quantidade: h('input', { class: 'inp', type: 'number', min: 1, max: 20, value: prova ? 10 : 5 }),
     alternativas: h('select', { class: 'inp' }, [2, 3, 4, 5, 6].map((n) => h('option', { value: n, selected: n === (inicial.alternativas || 5) }, n))),
-    observacao: h('textarea', { class: 'inp', rows: 3, placeholder: 'Opcional. Ex.: questões contextualizadas, estilo ENEM, com tabela de dados…' }),
+    observacao: h('textarea', { class: 'inp', rows: 3, placeholder: prova ? 'Opcional. Ex.: prova bimestral cobrindo os capítulos 3 e 4, metade fáceis e metade médias, com 2 questões de interpretação de gráfico…' : 'Opcional. Ex.: questões contextualizadas, estilo ENEM, com tabela de dados…' }),
   };
   const aviso = h('p', { class: 'dica', role: 'status' });
 
@@ -417,8 +419,9 @@ export async function dialogoGerar({ inicial = {}, umaSo = false, irConfig } = {
   let resultado = null, controle = null, relogio = null;
   const parar = () => { clearInterval(relogio); relogio = null; };
   const ok = await modal({
-    titulo: umaSo ? 'Gerar questão com IA' : 'Gerar questões com IA',
+    titulo: umaSo ? 'Gerar questão com IA' : prova ? 'Gerar prova com IA' : 'Gerar questões com IA',
     corpo: h('div', {},
+      prova ? h('p', { class: 'dica' }, 'A IA monta uma prova completa sobre o conteúdo. Você revisa as questões antes; as escolhidas entram nesta avaliação e no seu banco de questões. Use o clipe para anexar o material de referência (livro, apostila, slides, fotos).') : null,
       h('div', { class: 'form-grade' },
         campo('Disciplina', f.disciplina), campo('Assunto / conteúdo', f.assunto),
         campo('Série / ano', f.serie), campo('Dificuldade', f.dificuldade),
@@ -452,7 +455,7 @@ export async function dialogoGerar({ inicial = {}, umaSo = false, irConfig } = {
           resultado = await gerarQuestoes({
             disciplina: f.disciplina.value.trim(), assunto: f.assunto.value.trim(), serie: f.serie.value.trim(), dificuldade: f.dificuldade.value,
             quantidade: umaSo ? 1 : Math.max(1, Math.min(20, +f.quantidade.value || 5)), alternativas: +f.alternativas.value,
-            observacao: f.observacao.value.trim(),
+            observacao: f.observacao.value.trim(), prova,
           }, { sinal: controle.signal, material, progresso: (t) => { extra = t; mostrar(); } });
           parar();
           return true;

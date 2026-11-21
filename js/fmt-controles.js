@@ -159,13 +159,25 @@ export function montarFormatacao(av, deps) {
     if (!p) { toast('Você ainda não definiu um padrão. Ajuste a formatação e toque em "Definir como padrão".'); return; }
     Object.assign(av, structuredClone(p)); refazerTudo(); mudou(); toast('Seu padrão foi aplicado', 'ok');
   } }, h('span', { class: 'fmt-ic', html: IC.estrela }), 'Padrão Customizado');
+  const definirPadrao = async () => {
+    if (!(await confirmar('Usar a formatação atual como padrão para as novas avaliações?', { ok: 'Definir como padrão' }))) return;
+    toast(definirComoPadrao(av) ? 'Formatação definida como padrão para novas avaliações' : 'Não foi possível salvar o padrão neste navegador', 'ok');
+    atualizar();
+  };
+  const aplicarCustom = () => {
+    const p = padraoUsuario();
+    if (!p) { toast('Você ainda não definiu um padrão. Ajuste a formatação e toque em "Definir como padrão".'); return; }
+    Object.assign(av, structuredClone(p)); refazerTudo(); mudou(); toast('Seu padrão foi aplicado', 'ok');
+  };
+  const aplicarPadraoABNT = () => { aplicarABNT(av); refazerTudo(); mudou(); toast('Padrão ABNT aplicado', 'ok'); };
   const barraPadrao = h('div', { class: 'fmt-barra-padrao' },
     h('div', { class: 'linha-botoes' }, btnABNT, btnCustom,
-      h('button', { class: 'btn btn-sm', type: 'button', title: 'Usar esta formatação nas próximas avaliações (como o "Definir como Padrão" do Word)', onclick: async () => {
-        if (!(await confirmar('Usar a formatação atual como padrão para as novas avaliações?', { ok: 'Definir como padrão' }))) return;
-        toast(definirComoPadrao(av) ? 'Formatação definida como padrão para novas avaliações' : 'Não foi possível salvar o padrão neste navegador', 'ok');
-        atualizar();
-      } }, 'Definir como padrão')));
+      h('button', { class: 'btn btn-sm', type: 'button', title: 'Usar esta formatação nas próximas avaliações (como o "Definir como Padrão" do Word)', onclick: definirPadrao }, 'Definir como padrão')));
+  // estado dos padrões para a faixa de opções
+  const estadoPadroes = () => {
+    const p = padraoUsuario();
+    return { abnt: !divergenciasABNT(av, F()).length, custom: !!p && Object.entries(p).every(([k, v]) => JSON.stringify(av[k]) === JSON.stringify(v)), temCustom: !!p };
+  };
   const marcarPadroes = () => {
     btnABNT.classList.toggle('ativo', !divergenciasABNT(av, F()).length);
     const p = padraoUsuario();
@@ -311,7 +323,112 @@ export function montarFormatacao(av, deps) {
     { v: 'lista', rot: 'Em lista', desenho: DESENHO.altLista }, { v: 'duas', rot: '2 colunas', desenho: DESENHO.altDuas }, { v: 'linha', rot: 'Em linha', desenho: DESENHO.altLinha }], mudou, { classe: 'fmt-blocos-3' }))));
 
   const secoes = [secLayout, secFonte, secPar, secQuest, secNum, secAlt];
-  const el = h('div', { class: 'fmt-cartao' }, barraPadrao, previa, ...secoes);
+  const el = h('div', { class: 'fmt-cartao' }, barraPadrao, ...secoes);
+  // peças usadas pela faixa de opções da avaliação
+  // (guardadas aqui: ao abrir num painel, o conteúdo sai da seção e não poderia ser achado de novo)
+  const corpos = Object.fromEntries(secoes.map((x) => [x.dataset.secao, x.querySelector('.fmt-sec-corpo')]));
+  const corpoDe = (id) => corpos[id];
+  const abrirCorpo = (titulo, id) => modal({ titulo, corpo: h('div', { class: 'faixa-dlg' }, corpoDe(id)) });
+
+  // ---- galerias no estilo de "Margens": modelos prontos e, no final, a opção personalizada
+  const tit = (t) => h('div', { class: 'ed-paleta-tit' }, t);
+  const mais = (rot, acao) => h('button', { type: 'button', class: 'fmt-gi-mais', onclick: () => { fecharPop(); acao(); } }, rot);
+  const blocosQ = (gap) => S('0 0 44 34', `<rect x="4" y="3" width="36" height="${(14 - gap) / 2 + 4}" rx="1.5" fill="#fff"/><rect x="4" y="${3 + (14 - gap) / 2 + 4 + gap}" width="36" height="${(14 - gap) / 2 + 4}" rx="1.5" fill="#fff"/>`);
+  const ESPACOS = [[2, 'Pequeno', '2 mm entre as questões', 1], [4, 'Médio', '4 mm entre as questões', 3], [8, 'Grande', '8 mm entre as questões', 6], [14, 'Muito grande', '14 mm entre as questões', 9]];
+  const painelEspacoQ = () => h('div', { class: 'fmt-galeria' }, tit('Espaço entre questões'),
+    ...ESPACOS.map(([v, nome, desc, g]) => itemGaleria({ desenho: blocosQ(g), titulo: nome, desc, ativo: +av.espacoQuestoes === v, acao: () => { av.espacoQuestoes = v; refazerTudo(); mudou(); } })),
+    ESPACOS.some(([v]) => +av.espacoQuestoes === v) ? null : itemGaleria({ desenho: blocosQ(5), titulo: 'Personalizado', desc: `${String(av.espacoQuestoes).replace('.', ',')} mm`, ativo: true, acao: () => {} }),
+    mais('Espaçamento Personalizado…', dialogoEspacoQ));
+  async function dialogoEspacoQ() {
+    const i = h('input', { type: 'number', min: 0, max: 40, step: 0.5, value: av.espacoQuestoes });
+    const r = await modal({ titulo: 'Espaço entre questões', corpo: h('div', {}, campo('Espaço (mm)', i), h('p', { class: 'dica' }, 'Distância entre o fim de uma questão e o início da próxima.')),
+      acoes: [{ label: 'Cancelar', value: null }, { label: 'OK', primary: true, value: 'ok' }] });
+    if (r !== 'ok') return;
+    av.espacoQuestoes = Math.max(0, Math.min(40, +String(i.value).replace(',', '.') || 0)); refazerTudo(); mudou();
+  }
+
+  const LINHAS_Q = [
+    ['', 'Sem linha', 'As questões ficam só separadas pelo espaço', ''],
+    ['fina', 'Linha fina', 'Contínua e discreta', 'stroke-width="1"'],
+    ['grossa', 'Linha grossa', 'Contínua e mais forte', 'stroke-width="2.4"'],
+    ['tracejada', 'Tracejada', '', 'stroke-width="1.2" stroke-dasharray="4 2.5"'],
+    ['pontilhada', 'Pontilhada', '', 'stroke-width="1.4" stroke-dasharray="1 2.2"'],
+    ['dupla', 'Dupla', '', 'dupla'],
+  ];
+  const desenhoLinha = (estilo) => S('0 0 44 34', `<rect x="4" y="2" width="36" height="11" rx="1.5" fill="#fff"/><rect x="4" y="21" width="36" height="11" rx="1.5" fill="#fff"/>`
+    + (estilo === 'dupla' ? '<path d="M3 16h38M3 18.5h38" stroke-width="1"/>' : estilo ? `<path d="M3 17h38" ${estilo}/>` : ''));
+  const linhaAtual = () => (av.linhaDivisoria ? (av.estiloLinha || 'fina') : '');
+  const painelLinhaQ = () => h('div', { class: 'fmt-galeria' }, tit('Linha entre questões'),
+    ...LINHAS_Q.map(([v, nome, desc, traco]) => itemGaleria({ desenho: desenhoLinha(traco), titulo: nome, desc, ativo: linhaAtual() === v,
+      acao: () => { av.linhaDivisoria = v ? '1' : ''; if (v) av.estiloLinha = v; refazerTudo(); mudou(); } })));
+
+  // numeração: modelos prontos (rótulo, pontuação e estilo do número)
+  const NUMS = [
+    ['QUESTÃO 1', 'Negrito, maiúsculas', { rotulo: 'Questão', caixaRotulo: 'maiusculas', zeros: '', sufixo: '', estiloNum: 'negrito' }],
+    ['Questão 1.', 'Negrito', { rotulo: 'Questão', caixaRotulo: 'normal', zeros: '', sufixo: '.', estiloNum: 'negrito' }],
+    ['1)', 'Só o número', { rotulo: '', zeros: '', sufixo: ')', estiloNum: 'negrito' }],
+    ['01 –', 'Dois dígitos', { rotulo: '', zeros: '1', sufixo: ' –', estiloNum: 'negrito' }],
+    ['Q1.', 'Abreviado', { rotulo: 'Q', caixaRotulo: 'normal', zeros: '', sufixo: '.', estiloNum: 'negrito' }],
+    ['QUESTÃO 01', 'Fundo escuro', { rotulo: 'Questão', caixaRotulo: 'maiusculas', zeros: '1', sufixo: '', estiloNum: 'escuro' }],
+    ['Questão 1', 'Em caixa', { rotulo: 'Questão', caixaRotulo: 'normal', zeros: '', sufixo: '', estiloNum: 'caixa' }],
+    ['1', 'Número no círculo', { rotulo: '', zeros: '', sufixo: '', estiloNum: 'circulo' }],
+  ];
+  const igual = (o) => Object.entries(o).every(([k, v]) => String(F()[k] ?? '') === String(v));
+  const painelNumeracao = () => h('div', { class: 'fmt-galeria fmt-galeria-2' }, tit('Numeração das questões'),
+    ...NUMS.map(([rot, desc, o]) => itemGaleria({ desenho: `<div class="fmt-qn qn-${o.estiloNum}"><div class="q-num"><span>${esc(rot)}</span></div></div>`, titulo: rot, desc, ativo: igual(o),
+      acao: () => { Object.assign(av, o); refazerTudo(); mudou(); } })),
+    mais('Personalizar Numeração…', () => abrirCorpo('Numeração das questões', 'numero')));
+
+  // alternativas: letras + disposição
+  const ALTS = [
+    ['a)', 'lista', 'Em lista', DESENHO.altLista], ['(A)', 'lista', 'Em lista', DESENHO.altLista], ['A)', 'lista', 'Em lista', DESENHO.altLista],
+    ['a)', 'duas', 'Em 2 colunas', DESENHO.altDuas], ['A)', 'duas', 'Em 2 colunas', DESENHO.altDuas], ['a)', 'linha', 'Em linha', DESENHO.altLinha],
+  ];
+  const painelAlternativas = () => h('div', { class: 'fmt-galeria fmt-galeria-2' }, tit('Alternativas'),
+    ...ALTS.map(([letra, dispo, nome, desenho]) => {
+      const f = ESTILOS_ALT[letra];
+      return itemGaleria({ desenho, titulo: `${f(0)} ${f(1)} ${f(2)}`, desc: nome, ativo: av.estiloAlt === letra && (av.dispoAlt || 'lista') === dispo,
+        acao: () => { av.estiloAlt = letra; av.dispoAlt = dispo; refazerTudo(); mudou(); } });
+    }),
+    mais('Mais Opções de Alternativas…', () => abrirCorpo('Alternativas', 'alternativas')));
+
+  // valor de cada questão
+  const VALORES = [['', 'Não mostrar', ''], ['parenteses', 'QUESTÃO 1 (1,0 ponto)', 'Entre parênteses'], ['colchetes', 'QUESTÃO 1 [1,0]', 'Entre colchetes'], ['valor', 'QUESTÃO 1 · Valor: 1,0', 'Com a palavra "Valor"']];
+  const valorAtual = () => (av.valorQuestao === true ? 'parenteses' : av.valorQuestao || '');
+  const painelValor = () => h('div', { class: 'fmt-galeria' }, tit('Valor de cada questão'),
+    ...VALORES.map(([v, nome, desc]) => itemGaleria({ desenho: S('0 0 44 28', v ? '<path d="M8 9h11"/><rect x="23" y="5" width="15" height="8" rx="2"/><path d="M8 17h28M8 22h20"/>' : '<path d="M8 9h11M8 17h28M8 22h20"/>'), titulo: nome, desc, ativo: valorAtual() === v,
+      acao: () => { av.valorQuestao = v; mudou(); } })),
+    h('small', { class: 'fmt-gi-nota' }, 'O valor da prova (em Cabeçalho) é dividido igualmente entre as questões.'));
+
+  // estilo do cabeçalho
+  const CABS = [
+    ['moldura', 'Moldura arredondada', 'Borda em volta do cabeçalho', '<rect x="3" y="4" width="38" height="22" rx="4"/>'],
+    ['simples', 'Linha simples', 'Só uma linha abaixo', '<path d="M3 26h38"/>'],
+    ['dupla', 'Moldura dupla', 'Borda dupla, mais formal', '<rect x="3" y="4" width="38" height="22" rx="1"/><rect x="5.5" y="6.5" width="33" height="17" rx="0.5"/>'],
+    ['faixa', 'Faixa no título', 'Título sobre uma faixa cinza', '<rect x="3" y="4" width="38" height="22" rx="2"/><rect x="3" y="4" width="38" height="7" fill="currentColor" opacity=".25" stroke="none"/>'],
+    ['sem', 'Sem borda', 'Cabeçalho limpo', ''],
+  ];
+  const painelCab = () => h('div', { class: 'fmt-galeria' }, tit('Estilo do cabeçalho'),
+    ...CABS.map(([v, nome, desc, forma]) => itemGaleria({ desenho: S('0 0 44 30', forma + '<path d="M14 11h16M10 16h24M10 20h18" opacity=".7"/>'), titulo: nome, desc, ativo: (av.estiloCab || 'moldura') === v,
+      acao: () => { av.estiloCab = v; mudou(); } })),
+    h('small', { class: 'fmt-gi-nota' }, 'Não se aplica ao cabeçalho personalizado (imagem).'));
+
+  el.ferramentas = {
+    F, mudou, refazerTudo, atualizar: () => atualizar(), reg,
+    cbFonte, cbTam, mudarTam, btnEspac,
+    caixaTexto: reg(segmentado(av, 'caixaTexto', [{ v: 'normal', rot: 'Aa', tit: 'Como digitado' }, { v: 'maiusculas', rot: 'AA', tit: 'TUDO MAIÚSCULO (letra bastão)' }], mudou)),
+    alinhamento: reg(segmentado(av, 'alinhamento', [
+      { v: 'left', ic: svg('esq'), tit: 'Alinhar à Esquerda' }, { v: 'center', ic: svg('centro'), tit: 'Centralizar' },
+      { v: 'right', ic: svg('dir'), tit: 'Alinhar à Direita' }, { v: 'justify', ic: svg('just'), tit: 'Justificar' }], mudou)),
+    espacoQuestoes: reg(segmentado(av, 'espacoQuestoes', [[2, 'P', 'Pequeno'], [4, 'M', 'Médio'], [8, 'G', 'Grande'], [14, 'GG', 'Muito grande']].map(([v, rot, tit]) => ({ v, rot, tit })), mudou, { numero: true })),
+    estiloAlt: reg(segmentado(av, 'estiloAlt', Object.keys(ESTILOS_ALT).map((k) => ({ v: k, rot: ESTILOS_ALT[k](0), tit: `${ESTILOS_ALT[k](0)} ${ESTILOS_ALT[k](1)} ${ESTILOS_ALT[k](2)}` })), mudou)),
+    painelMargens, painelPapel, painelColunas, painelNumPag, dialogoEspacamento, dialogoMargens,
+    abrirParagrafo: () => abrirCorpo('Parágrafo', 'paragrafo'),
+    painelEspacoQ, painelLinhaQ, painelNumeracao, painelAlternativas, painelValor, painelCab, itemGaleria, S,
+    aplicarPadraoABNT, aplicarCustom, definirPadrao, estadoPadroes,
+    IC,
+  };
+  el.previa = previa; // a tela da avaliação mostra a pré-visualização em um cartão próprio, no final
 
   // ================= caixas de diálogo (como no Word)
   async function dialogoMargens() {
@@ -433,7 +550,8 @@ export function montarFormatacao(av, deps) {
     folha.style.height = p.h + 'mm';
     folha.style.setProperty('--margem', `${m.sup}cm ${m.dir}cm ${m.inf}cm ${m.esq}cm`);
     folha.innerHTML = deps.renderPagina() + `<div class="fmt-guia" style="top:${m.sup}cm;bottom:${m.inf}cm;left:${m.esq}cm;right:${m.dir}cm"></div>`
-      + (f.numPagina ? `<div class="fmt-num-pag fmt-np-${f.posNumPagina}" style="--msup:${m.sup}cm;--minf:${m.inf}cm;--mdir:${m.dir}cm">${f.posNumPagina === 'topo-dir' ? '1' : 'Página 1 de 1'}</div>` : '');
+      + (f.numPagina ? `<div class="fmt-num-pag fmt-np-${f.posNumPagina}" style="--msup:${m.sup}cm;--minf:${m.inf}cm;--mdir:${m.dir}cm">${f.posNumPagina === 'topo-dir' ? '1' : 'Página 1 de 1'}</div>` : '')
+      + ((av.rodape || '').trim() ? `<div class="fmt-rodape ${f.numPagina && f.posNumPagina !== 'topo-dir' ? 'fmt-rd-esq' : 'fmt-rd-centro'}" style="--minf:${m.inf}cm;--mesq:${m.esq}cm">${esc(av.rodape.trim().replace(/\s*\n\s*/g, ' · '))}</div>` : '');
     const k = moldura.clientWidth / folha.offsetWidth;
     if (k > 0) { folha.style.transform = `scale(${k})`; moldura.style.height = folha.offsetHeight * k + 'px'; }
     // estimativa de páginas (mede a prova inteira na largura útil)

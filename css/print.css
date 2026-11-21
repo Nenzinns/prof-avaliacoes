@@ -63,6 +63,10 @@
 /* colunas e linha divisória */
 .prova-c3 .prova-questoes { column-count: 3; column-gap: var(--col-gap, 6mm); column-rule: var(--col-rule, .5px solid #888); }
 .prova-divisoria .questao { border-bottom: .6px solid #8a8a8a; padding-bottom: calc(var(--esp-q, 4mm) * .8); }
+.prova-divisoria.linha-grossa .questao { border-bottom: 1.6px solid #333; }
+.prova-divisoria.linha-tracejada .questao { border-bottom: .8px dashed #666; }
+.prova-divisoria.linha-pontilhada .questao { border-bottom: 1.2px dotted #666; }
+.prova-divisoria.linha-dupla .questao { border-bottom: 2.4px double #555; }
 .prova-divisoria .questao:last-child { border-bottom: 0; }
 
 /* cabeçalho personalizado (imagem) */
@@ -100,3 +104,18 @@
 .prova .questao > .q-conteudo p { margin-top: var(--p-antes, 0); margin-bottom: var(--p-depois, .35em); text-indent: var(--recuo, 0); }
 .prova .questao > .q-conteudo p:has(> .q-fig:first-child) { text-indent: 0; }
 .txt-right .questao > .q-conteudo { text-align: right; }
+
+/* estilos do cabeçalho */
+.cab-simples .prova-cab { border: 0; border-bottom: 1.4px solid #000; border-radius: 0; padding: 0 0 3mm; }
+.cab-dupla .prova-cab { border: 3px double #000; border-radius: 0; }
+.cab-sem .prova-cab { border: 0; padding: 0; }
+.cab-faixa .prova-cab { border-radius: 1.5mm; padding-top: 0; overflow: hidden; }
+.cab-faixa .pc-topo { background: #e6e6e6; margin: 0 -4mm; padding: 2mm 4mm; border-bottom: 1px solid #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+/* marca d'água: o fundo precisa sair na impressão */
+.prova { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+/* fonte da prova: enunciados em negrito/itálico e título sublinhado */
+.enun-negrito .questao > .q-conteudo { font-weight: bold; }
+.enun-italico .questao > .q-conteudo { font-style: italic; }
+.titulo-sublinhado .pc-titulo { text-decoration: underline; text-underline-offset: 2px; }

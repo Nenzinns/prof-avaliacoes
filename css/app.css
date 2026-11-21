@@ -526,3 +526,53 @@ body:not([data-rota="inicio"]) #btn-config, body:not([data-rota="inicio"]) #btn-
 .aviso-backup { max-width: 760px; margin: 22px auto 0; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; background: var(--pri-claro); border: 1px solid #c5ccf3; text-align: left; }
 .aviso-backup-txt { flex: 1 1 280px; display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
 .aviso-backup-txt b { color: var(--pri); font-size: 15px; }
+
+/* blocos da avaliação que podem ser minimizados */
+.bloco-av > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
+.bloco-av > summary::-webkit-details-marker { display: none; }
+details.cartao.bloco-av > summary::before { content: none; }
+.bloco-av > summary h2 { font-size: 17px; margin: 0; }
+.bloco-av-seta { display: inline-flex; color: var(--texto-2); transition: transform .15s; }
+.bloco-av-seta svg { width: 20px; height: 20px; }
+.bloco-av:not([open]) .bloco-av-seta { transform: rotate(-90deg); }
+.bloco-av[open] > summary { margin-bottom: 12px; }
+.bloco-av .cab-ctrl { margin-bottom: 4px; }
+
+/* tela da avaliação: faixa de opções + questões e pré-visualização */
+.faixa-av { margin-bottom: 16px; }
+.av-corpo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.av-previa { position: sticky; top: 210px; }
+@media (max-width: 900px) { .av-corpo { grid-template-columns: 1fr; } .av-previa { position: static; } }
+.faixa-seg { display: inline-flex; }
+.faixa-seg .fmt-seg { margin: 0; }
+.faixa-seg-quebra .fmt-seg { flex-wrap: wrap; max-width: 220px; }
+.faixa-rot { font-size: 11.5px; color: var(--texto-2); margin: 2px 0; }
+.faixa-pop { padding: 8px 10px 10px; width: min(380px, 90vw); display: flex; flex-direction: column; gap: 6px; }
+.faixa-pop .fmt-sec-corpo { padding: 0; }
+.faixa-apagado { opacity: .55; }
+.faixa-av .ed-btn-ia { margin-left: auto; align-self: center; margin-bottom: 4px; }
+.prova-fim { margin-top: 6mm; text-align: center; font-weight: 700; break-inside: avoid; }
+.faixa-b-ia { color: #6b3fd4; }
+
+/* galerias da faixa da avaliação */
+.fmt-galeria-2 { width: min(460px, 92vw); display: grid; grid-template-columns: 1fr 1fr; }
+.fmt-galeria-2 > .ed-paleta-tit, .fmt-galeria-2 > .fmt-gi-mais, .fmt-galeria-2 > .fmt-gi-nota { grid-column: 1 / -1; }
+.fmt-gi-img { flex: none; min-width: 44px; display: flex; justify-content: center; }
+.fmt-gi-img .fmt-qn { font-size: 12px; white-space: nowrap; }
+.fmt-gi-img svg[viewBox="0 0 44 34"], .fmt-gi-img svg[viewBox="0 0 44 30"], .fmt-gi-img svg[viewBox="0 0 44 28"] { width: 44px; height: 32px; }
+.faixa-dlg .fmt-sec-corpo { padding: 0; }
+.faixa-dlg { min-width: min(420px, 80vw); }
+
+/* pesos das questões */
+.chip-valor { font-variant-numeric: tabular-nums; color: var(--texto-2); }
+.chip-valor.fixo { color: var(--pri); border-color: #b9c3f1; background: var(--pri-claro); font-weight: 700; }
+.chip.chip-alerta { background: #fff4e0; color: #8a5a00; }
+.peso-lista { display: flex; flex-direction: column; gap: 6px; max-height: 52vh; overflow-y: auto; margin: 8px 0; }
+.peso-linha { display: flex; align-items: center; gap: 8px; }
+.peso-txt { flex: 1; min-width: 0; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.peso-inp { width: 84px; flex: none; }
+.peso-alerta { color: #8a5a00; font-weight: 600; }
+/* rodapé na mini-página */
+.fmt-rodape { position: absolute; bottom: calc(var(--minf) / 2 - 2mm); font: 9pt Arial, sans-serif; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fmt-rd-centro { left: 0; right: 0; text-align: center; }
+.fmt-rd-esq { left: var(--mesq); max-width: 55%; }

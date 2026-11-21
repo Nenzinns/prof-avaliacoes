@@ -35,9 +35,15 @@ export async function telaLeitor(app, tela) {
 
 // ---------------------------------------------------------------- Correção
 export function corrigir(col, gab, respostas) {
-  let acertos = 0;
-  respostas.forEach((r, q) => { if (gab.anuladas[q] || (r !== null && r >= 0 && r === gab.respostas[q])) acertos++; });
-  const nota = Math.round((acertos / col.nQuestoes) * (col.notaMaxima ?? 10) * 100) / 100;
+  let acertos = 0, pontos = 0, totalPesos = 0;
+  const pesos = gab.pesos?.length === respostas.length ? gab.pesos : null; // pesos diferentes por questão
+  respostas.forEach((r, q) => {
+    const certo = gab.anuladas[q] || (r !== null && r >= 0 && r === gab.respostas[q]);
+    if (certo) acertos++;
+    if (pesos) { totalPesos += +pesos[q] || 0; if (certo) pontos += +pesos[q] || 0; }
+  });
+  const fracao = pesos && totalPesos > 0 ? pontos / totalPesos : acertos / col.nQuestoes;
+  const nota = Math.round(fracao * (col.notaMaxima ?? 10) * 100) / 100;
   return { acertos, nota };
 }
 

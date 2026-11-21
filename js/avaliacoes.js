@@ -1,10 +1,12 @@
 import { h, uid, toast, modal, confirmar, campo, vazio, LETRAS, esc, textoDeHtml, dataBR, lerImagem, escolherArquivo, embaralhar } from './ui.js';
 import { db } from './db.js';
-import { listaFiltravel, previewQuestao, botaoFavorito, destaques } from './questoes.js';
+import { listaFiltravel, previewQuestao, botaoFavorito, destaques, revisarGeradas } from './questoes.js';
 import { svgFolha, svgCompacto, maxQuestoes } from './omr-layout.js';
 import { imprimirPaginas } from './gabaritos.js';
 import { editarCabecalho, htmlCabecalho } from './cabecalho.js';
 import { montarFormatacao } from './fmt-controles.js';
+import { montarFaixa } from './faixa-avaliacao.js';
+import { dialogoGerar } from './ia.js';
 import { margemDe, margemCss, papelDe, formatacaoInicial } from './formato-pagina.js';
 import { ic } from './icones.js';
 
@@ -43,14 +45,31 @@ function rotuloQuestao(F, i) {
 }
 
 function classesProva(av, F) {
-  return [`prova-c${av.colunas}`, av.linhaDivisoria ? 'prova-divisoria' : '', `txt-${F.alinhamento}`, F.caixaTexto === 'maiusculas' ? 'txt-maiusculas' : '',
-    `qn-${F.estiloNum}`, F.posNum === 'linha' ? 'qn-linha' : '', `alts-${F.dispoAlt}`, F.letraNegrito ? 'alt-negrito' : ''].filter(Boolean).join(' ');
+  return [`prova-c${av.colunas}`, av.linhaDivisoria ? `prova-divisoria linha-${av.estiloLinha || 'fina'}` : '', `cab-${av.estiloCab || 'moldura'}`, `txt-${F.alinhamento}`, F.caixaTexto === 'maiusculas' ? 'txt-maiusculas' : '',
+    `qn-${F.estiloNum}`, F.posNum === 'linha' ? 'qn-linha' : '', `alts-${F.dispoAlt}`, F.letraNegrito ? 'alt-negrito' : '',
+    av.enunNegrito ? 'enun-negrito' : '', av.enunItalico ? 'enun-italico' : '', av.tituloSublinhado ? 'titulo-sublinhado' : ''].filter(Boolean).join(' ');
+}
+
+/** Marca d'água: o logotipo (ou outra imagem) bem claro no centro de cada página da prova. */
+const MARCAS = { clara: { escala: 0.6, opac: 0.08 }, visivel: { escala: 0.6, opac: 0.16 }, pequena: { escala: 0.32, opac: 0.1 } };
+function marcaDagua(av, F) {
+  const cfg = MARCAS[av.marcaDagua];
+  const img = av.marcaImg || av.logo;
+  if (!cfg || !img) return '';
+  const p = papelDe(F), m = margemDe(F);
+  const W = p.w - (m.esq + m.dir) * 10, H = p.h - (m.sup + m.inf) * 10;
+  const w = W * cfg.escala;
+  const svgTxt = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}mm" height="${H}mm" viewBox="0 0 ${W} ${H}">`
+    + `<image href="${img}" x="${(W - w) / 2}" y="${(H - w) / 2}" width="${w}" height="${w}" opacity="${cfg.opac}" preserveAspectRatio="xMidYMid meet"/></svg>`;
+  return ` background-image:url('data:image/svg+xml,${encodeURIComponent(svgTxt)}'); background-size:100% ${H}mm; background-repeat:repeat-y; background-position:center top;`;
 }
 
 function estiloProva(av, F) {
   return `font-family:'${esc(av.fonte)}', Arial, sans-serif; font-size:${av.tamanho}pt; line-height:${F.entreLinhas}; --esp-q:${av.espacoQuestoes}mm;`
+    + (/^#[0-9a-f]{3,8}$/i.test(av.corTexto || '') ? ` color:${av.corTexto};` : '')
     + ` --p-antes:${+F.espAntes || 0}pt; --p-depois:${+F.espDepois || 0}pt; --recuo:${+F.recuo || 0}cm;`
-    + ` --col-gap:${+F.espacoColunas || 0.8}cm; --col-rule:${F.linhaColunas ? '.5px solid #888' : '0 none transparent'}`;
+    + ` --col-gap:${+F.espacoColunas || 0.8}cm; --col-rule:${F.linhaColunas ? '.5px solid #888' : '0 none transparent'};`
+    + marcaDagua(av, F);
 }
 
 /**
@@ -69,9 +88,39 @@ function numeroNaLinha(comando, rotulo) {
   return tpl.innerHTML;
 }
 
-function questaoHtml(av, F, i, comando, alternativas) {
+const MARCAS_OK = ['clara', 'visivel', 'pequena'];
+
+/** Valor total da prova (campo "Valor" do cabeçalho; 10 se vazio). */
+export function totalProva(av) {
+  return parseFloat(String(av.valor || '').replace(',', '.').replace(/[^\d.]/g, '')) || 10;
+}
+
+/**
+ * Valor de cada questão: as que têm peso definido valem o peso; o restante do valor da prova
+ * é dividido igualmente entre as demais.
+ */
+export function valoresQuestoes(av, ids) {
+  const pesos = av.pesos || {};
+  const fixo = (id) => +pesos[id] > 0;
+  const somaFixos = ids.filter(fixo).reduce((s, id) => s + +pesos[id], 0);
+  const livres = ids.filter((id) => !fixo(id)).length;
+  const resto = livres ? Math.max(0, totalProva(av) - somaFixos) / livres : 0;
+  return Object.fromEntries(ids.map((id) => [id, Math.round((fixo(id) ? +pesos[id] : resto) * 100) / 100]));
+}
+export const temPesos = (av) => Object.values(av.pesos || {}).some((p) => +p > 0);
+export const fmtPontos = (v) => (+v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
+
+/** Texto do valor ao lado do número, ex.: "(1,0 ponto)". */
+function valorPorQuestao(av, v) {
+  const fmt = av.valorQuestao === true ? 'parenteses' : av.valorQuestao;
+  if (!fmt || v == null) return '';
+  const t = fmtPontos(v);
+  return fmt === 'colchetes' ? ` [${t}]` : fmt === 'valor' ? ` · Valor: ${t}` : ` (${t} ${v === 1 ? 'ponto' : 'pontos'})`;
+}
+
+function questaoHtml(av, F, i, comando, alternativas, valor = null) {
   const fmtAlt = ESTILOS_ALT[av.estiloAlt] || ESTILOS_ALT['a)'];
-  const rotulo = rotuloQuestao(F, i);
+  const rotulo = rotuloQuestao(F, i) + valorPorQuestao(av, valor);
   const comNumero = F.posNum === 'linha' ? numeroNaLinha(comando, rotulo) : null;
   return `<div class="questao">
     ${comNumero ? '' : `<div class="q-num"><span>${esc(rotulo)}</span></div>`}
@@ -88,7 +137,10 @@ export function estiloPagina(av) {
   // ABNT: só o número, no canto superior direito; nos demais, "Página X de Y"
   const conteudo = F.posNumPagina === 'topo-dir' ? 'counter(page)' : '"Página " counter(page) " de " counter(pages)';
   const num = F.numPagina ? ` @${caixa} { content: ${conteudo}; font: 10pt Arial, sans-serif; color: #333; }` : '';
-  return `<style>@page { size: ${p.w}mm ${p.h}mm; margin: ${margemCss(F)};${num} } @page folha { size: A4; margin: 0; @top-right { content: none; } @bottom-center { content: none; } @bottom-right { content: none; } }</style>`;
+  const txt = (av.rodape || '').trim().replace(/\s*\n\s*/g, ' · ');
+  const caixaRod = F.numPagina && F.posNumPagina !== 'topo-dir' ? 'bottom-left' : 'bottom-center';
+  const rod = txt ? ` @${caixaRod} { content: "${txt.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"; font: 9pt Arial, sans-serif; color: #444; }` : '';
+  return `<style>@page { size: ${p.w}mm ${p.h}mm; margin: ${margemCss(F)};${num}${rod} } @page folha { size: A4; margin: 0; @top-right { content: none; } @bottom-center { content: none; } @bottom-right { content: none; } }</style>`;
 }
 
 function novaAvaliacao() {
@@ -229,11 +281,11 @@ export async function telaAvaliacao(app, tela, id) {
   tela.titulo(av.titulo || 'Avaliação');
 
   let timer = null;
-  const salvar = () => { clearTimeout(timer); return db.put('avaliacoes', av); };
+  const salvar = () => { clearTimeout(timer); timer = null; return db.put('avaliacoes', av); };
   let atualizarPrevia = () => {};
   let timerPrevia = null;
-  const agendar = () => { clearTimeout(timer); timer = setTimeout(salvar, 500); clearTimeout(timerPrevia); timerPrevia = setTimeout(() => atualizarPrevia(), 250); };
-  tela.aoSair(() => { if (timer) salvar(); });
+  let agendarSalvar = () => { clearTimeout(timer); timer = setTimeout(salvar, 500); };
+  const agendar = () => { agendarSalvar(); clearTimeout(timerPrevia); timerPrevia = setTimeout(() => atualizarPrevia(), 250); };
 
   const inp = (k, ph, tipo = 'text') => {
     const el = h(tipo === 'textarea' ? 'textarea' : 'input', { type: tipo, placeholder: ph, rows: 3 });
@@ -262,6 +314,10 @@ export async function telaAvaliacao(app, tela, id) {
   const renderQuestoes = () => {
     resumo.textContent = `${av.questoes.length} questão(ões)`;
     if (!av.questoes.length) { listaQ.replaceChildren(vazio('questao', 'Nenhuma questão na avaliação ainda.')); return; }
+    const valores = valoresQuestoes(av, av.questoes);
+    const soma = Object.values(valores).reduce((s, x) => s + x, 0);
+    resumo.textContent += ` · ${fmtPontos(soma)} de ${fmtPontos(totalProva(av))} pontos`;
+    resumo.classList.toggle('chip-alerta', Math.abs(soma - totalProva(av)) > 0.01);
     listaQ.replaceChildren(...av.questoes.map((qid, i) => {
       const q = qmap[qid];
       const mover = (d) => { const j = i + d; if (j < 0 || j >= av.questoes.length) return; [av.questoes[i], av.questoes[j]] = [av.questoes[j], av.questoes[i]]; invalidar(); renderQuestoes(); };
@@ -271,10 +327,49 @@ export async function telaAvaliacao(app, tela, id) {
         h('div', { class: 'item-corpo' }, h('div', { class: 'item-texto' }, textoDeHtml(q.comando) || '(imagem/tabela)'),
           h('div', { class: 'item-sub' }, [q.disciplina, q.assunto, `${1 + q.distratores.length} alt.`].filter(Boolean).join(' · '))),
         h('div', { class: 'linha-botoes' },
+          h('button', { class: `btn btn-sm chip-valor ${+av.pesos?.[qid] > 0 ? 'fixo' : ''}`, title: +av.pesos?.[qid] > 0 ? 'Peso definido por você. Toque para mudar.' : 'Valor automático (o valor da prova dividido entre as questões). Toque para definir os pesos.', onclick: () => dialogoPesos(qid) },
+            `${fmtPontos(valores[qid])} pt`),
           h('button', { class: 'btn btn-sm', onclick: () => modal({ titulo: `Questão ${i + 1}`, largo: true, corpo: previewQuestao(q) }) }, 'Ver'),
           h('a', { class: 'btn btn-sm', href: `#/formatador/questao/${qid}` }, 'Editar'),
           h('button', { class: 'btn btn-sm', title: 'Remover da avaliação', onclick: () => { av.questoes.splice(i, 1); invalidar(); renderQuestoes(); } }, '✕')));
     }));
+  };
+
+  /** Pesos das questões: cada uma pode ter um valor; as em branco dividem o que sobrar do valor da prova. */
+  const dialogoPesos = async (foco) => {
+    if (!av.questoes.length) { toast('Adicione questões primeiro.', 'erro'); return; }
+    const total = totalProva(av);
+    const inps = {};
+    const somaEl = h('p', { class: 'dica' });
+    const linhas = av.questoes.map((qid, i) => {
+      const q = qmap[qid];
+      const inp = h('input', { class: 'inp peso-inp', type: 'number', min: 0, step: 0.25, value: +av.pesos?.[qid] > 0 ? av.pesos[qid] : '', 'aria-label': `Valor da questão ${i + 1}` });
+      inps[qid] = inp;
+      inp.addEventListener('input', atualizarSoma);
+      return h('div', { class: 'peso-linha' }, h('span', { class: 'num-q' }, i + 1), h('div', { class: 'peso-txt' }, textoDeHtml(q.comando) || '(imagem/tabela)'), inp, h('span', { class: 'dica' }, 'pt'));
+    });
+    function atualizarSoma() {
+      const tmp = { ...av, pesos: Object.fromEntries(Object.entries(inps).map(([id, i]) => [id, +String(i.value).replace(',', '.') || 0])) };
+      const vals = valoresQuestoes(tmp, av.questoes);
+      Object.entries(inps).forEach(([id, i]) => { i.placeholder = fmtPontos(vals[id]); });
+      const soma = Object.values(vals).reduce((s, x) => s + x, 0);
+      const fixos = Object.values(tmp.pesos).reduce((s, x) => s + x, 0);
+      somaEl.className = 'dica' + (Math.abs(soma - total) > 0.01 ? ' peso-alerta' : '');
+      somaEl.textContent = Math.abs(soma - total) > 0.01
+        ? `Atenção: os pesos somam ${fmtPontos(fixos)} pontos, mais do que o valor da prova (${fmtPontos(total)}). Ajuste os pesos ou o valor no Cabeçalho.`
+        : `Soma: ${fmtPontos(soma)} de ${fmtPontos(total)} pontos. Os campos em branco dividem igualmente o que sobra.`;
+    }
+    atualizarSoma();
+    const r = await modal({
+      titulo: 'Pesos das questões', largo: true,
+      corpo: h('div', {}, h('p', { class: 'dica' }, `Valor da prova: ${fmtPontos(total)} pontos (mude em Cabeçalho → Valor). Digite o valor das questões que valem diferente; deixe em branco para dividir o restante igualmente.`),
+        h('div', { class: 'peso-lista' }, linhas), somaEl),
+      acoes: [{ label: 'Limpar pesos', value: 'limpar' }, { label: 'Cancelar', value: null }, { label: 'OK', primary: true, value: 'ok' }],
+    });
+    if (!r) return;
+    av.pesos = r === 'limpar' ? {} : Object.fromEntries(Object.entries(inps).map(([id, i]) => [id, +String(i.value).replace(',', '.') || 0]).filter(([, v]) => v > 0));
+    agendar(); renderQuestoes(); faixa?.atualizar();
+    if (av.colecaoId) toast('Toque em "Atualizar gabaritos no Leitor" para a correção usar os novos pesos.');
   };
 
   const adicionarDoBanco = async () => {
@@ -360,43 +455,122 @@ export async function telaAvaliacao(app, tela, id) {
   };
   renderCab();
 
-  app.append(h('div', { class: 'duas-col' },
-    h('div', {},
-      h('div', { class: 'cartao secao' },
-        h('div', { class: 'titulo-cab' }, campo('Título da avaliação', inp('titulo', 'Ex.: Avaliação Bimestral')), cabCtrl),
+  // ---- desfazer / refazer (cada salvamento vira um passo)
+  const hist = [JSON.stringify(av)];
+  let pos = 0;
+  const registrarHist = () => {
+    const atual = JSON.stringify(av);
+    if (atual === hist[pos]) return;
+    hist.splice(pos + 1);
+    hist.push(atual);
+    if (hist.length > 80) hist.shift();
+    pos = hist.length - 1;
+    faixa?.atualizar();
+  };
+  const restaurar = (txt) => {
+    const o = JSON.parse(txt);
+    for (const k of Object.keys(av)) if (!(k in o)) delete av[k];
+    Object.assign(av, o);
+    tela.titulo(av.titulo || 'Avaliação');
+    cartaoFormatacao.ferramentas.refazerTudo();
+    renderQuestoes(); renderVersoes(); renderCab(); renderLogo();
+    clearTimeout(timer); db.put('avaliacoes', av);
+    atualizarPrevia();
+  };
+  const salvarComHist = () => { registrarHist(); return salvar(); };
+  agendarSalvar = () => { clearTimeout(timer); timer = setTimeout(salvarComHist, 500); };
+  const teclas = (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.target.closest('input, textarea, [contenteditable]')) return;
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); desfazer(); } else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); refazer(); }
+  };
+  const desfazer = () => { if (timer) { clearTimeout(timer); salvarComHist(); } if (pos > 0) { pos--; restaurar(hist[pos]); faixa.atualizar(); } };
+  const refazer = () => { if (pos < hist.length - 1) { pos++; restaurar(hist[pos]); faixa.atualizar(); } };
+  document.addEventListener('keydown', teclas);
+
+  // ---- caixas de diálogo da faixa
+  const dlgCabecalho = () => {
+    renderCab(); renderLogo();
+    return modal({
+      titulo: 'Cabeçalho', largo: true,
+      corpo: h('div', {},
+        cabCtrl,
+        campo('Título da avaliação', inp('titulo', 'Ex.: Avaliação Bimestral')),
+        h('div', { class: 'campo' }, h('span', { class: 'campo-label' }, 'Logotipo da escola'), logoPrev),
         h('div', { class: 'form-grade' },
           campo('Escola', inp('escola', 'Nome da escola')), campo('Disciplina', inp('disciplina', 'Ex.: Matemática')),
           campo('Professor(a)', inp('professor', 'Seu nome')), campo('Turma / série', inp('turma', 'Ex.: 8º ano A')),
           campo('Data', inp('data', '', 'date')), campo('Valor', inp('valor', 'Ex.: 10,0 pontos'))),
-        campo('Instruções', inp('instrucoes', 'Uma instrução por linha', 'textarea')),
-        h('div', { class: 'campo' }, h('span', { class: 'campo-label' }, 'Logotipo da escola'), logoPrev),
         h('label', { class: 'campo-check' }, (() => { const c = h('input', { type: 'checkbox', checked: av.mostrarCampos }); c.addEventListener('change', () => { av.mostrarCampos = c.checked; agendar(); }); return c; })(), 'Campos para o aluno preencher (nome, nº, data, nota)')),
-      h('div', { class: 'secao' },
+      acoes: [{ label: 'Pronto', primary: true, value: true }],
+    });
+  };
+  const dlgTexto = (titulo, k, ph, dica) => modal({
+    titulo,
+    corpo: h('div', {}, dica ? h('p', { class: 'dica' }, dica) : null, campo(titulo, (() => { const t = inp(k, ph, 'textarea'); t.rows = 6; return t; })())),
+    acoes: [{ label: 'Pronto', primary: true, value: true }],
+  });
+  const verGabarito = () => { renderVersoes(); return modal({ titulo: 'Gabarito de cada tipo', corpo: h('div', {}, versoesEl.cloneNode(true)) }); };
+
+  // ---- gerar a prova inteira com IA (com material anexado)
+  const gerarProvaIA = async () => {
+    const geradas = await dialogoGerar({
+      prova: true, irConfig: () => tela.ir('/configuracoes'),
+      inicial: { disciplina: av.disciplina, serie: av.turma },
+    });
+    if (!geradas) return;
+    const salvas = await revisarGeradas(geradas, { textoSalvar: 'Adicionar à avaliação' });
+    if (!salvas.length) return;
+    for (const q of salvas) qmap[q.id] = q;
+    av.questoes.push(...salvas.map((q) => q.id));
+    const g = salvas[0];
+    if (!av.disciplina && g.disciplina) av.disciplina = g.disciplina;
+    if ((!av.titulo || av.titulo === 'Avaliação') && g.assunto) { av.titulo = `Avaliação de ${g.disciplina ? g.disciplina + ' — ' : ''}${g.assunto}`; tela.titulo(av.titulo); }
+    invalidar(); renderQuestoes();
+    toast(`${salvas.length} questão(ões) adicionadas à avaliação e ao banco de questões`, 'ok');
+  };
+
+  let faixa = null;
+  faixa = montarFaixa(av, cartaoFormatacao.ferramentas, {
+    mudou: agendar,
+    cabecalho: dlgCabecalho,
+    instrucoes: () => dlgTexto('Instruções', 'instrucoes', 'Uma instrução por linha', 'Escreva uma instrução por linha. Elas aparecem em lista no cabeçalho da prova.'),
+    mensagemFinal: () => dlgTexto('Mensagem final', 'mensagemFinal', 'Ex.: Boa prova!', 'Aparece no final da prova, depois da última questão. Deixe em branco para não mostrar.'),
+    adicionarSalvas: adicionarDoBanco,
+    novaQuestao: () => { salvar(); tela.ir(`/formatador/questao/nova?avaliacao=${av.id}`); },
+    gerarIA: gerarProvaIA,
+    imprimir: () => { salvar(); tela.ir(`/formatador/imprimir/${av.id}`); },
+    gerarGabaritos,
+    abrirColecao: () => { if (av.colecaoId) tela.ir(`/leitor/colecao/${av.colecaoId}`); },
+    temColecao: () => !!av.colecaoId,
+    mudarTipos: (n) => { av.tipos = n; invalidar(); },
+    alterarVersoes: invalidar,
+    pesos: () => dialogoPesos(),
+    rodape: () => dlgTexto('Rodapé', 'rodape', 'Ex.: Escola Estadual Machado de Assis — 1º bimestre', 'Texto que aparece no pé de todas as páginas da prova (na impressão e no PDF).'),
+    escolherMarca: async () => { const [f] = await escolherArquivo('image/*'); if (!f) return false; av.marcaImg = await lerImagem(f, 900); if (!MARCAS_OK.includes(av.marcaDagua)) av.marcaDagua = 'clara'; agendar(); return true; },
+    reembaralhar: async () => { if (av.colecaoId && !(await confirmar('Reembaralhar muda o gabarito. Provas já impressas deixarão de corresponder. Continuar?'))) return; gerarVersoes(av, qmap); agendar(); renderVersoes(); toast('Tipos reembaralhados'); },
+    verGabarito,
+    desfazer, refazer, podeDesfazer: () => pos > 0, podeRefazer: () => pos < hist.length - 1,
+  });
+  tela.aoSair(() => { document.removeEventListener('keydown', teclas); if (timer) salvar(); });
+
+  app.append(faixa,
+    h('div', { class: 'av-corpo' },
+      h('div', { class: 'secao av-questoes' },
         h('div', { class: 'secao-head' }, h('h2', {}, 'Questões '), resumo,
           h('button', { class: 'btn', onclick: adicionarDoBanco }, ic('livros'), 'Adicionar questões salvas'),
           h('a', { class: 'btn btn-primary', href: `#/formatador/questao/nova?avaliacao=${av.id}`, onclick: () => salvar() }, '+ Nova questão')),
-        listaQ)),
-    h('div', {},
-      h('div', { class: 'cartao secao' },
-        h('h2', { style: { fontSize: '17px', marginTop: 0 } }, 'Formatação'),
-        cartaoFormatacao),
-      h('div', { class: 'cartao secao' },
-        h('h2', { style: { fontSize: '17px', marginTop: 0 } }, 'Versões (anti-cola)'),
-        h('p', { class: 'dica' }, 'Gere tipos diferentes da mesma prova (mesmo conteúdo em ordens diferentes). Cada tipo tem seu gabarito.'),
-        campo('Quantidade de tipos', sel('tipos', [1, 2, 3, 4, 5, 6].map((n) => [n, n === 1 ? '1 (sem versões)' : `${n} tipos (${LETRAS.slice(0, n).split('').join(', ')})`]), true, invalidar)),
-        h('label', { class: 'campo-check' }, (() => { const c = h('input', { type: 'checkbox', checked: av.embQuestoes }); c.addEventListener('change', () => { av.embQuestoes = c.checked; invalidar(); }); return c; })(), 'Embaralhar ordem das questões'),
-        h('label', { class: 'campo-check' }, (() => { const c = h('input', { type: 'checkbox', checked: av.embAlternativas }); c.addEventListener('change', () => { av.embAlternativas = c.checked; invalidar(); }); return c; })(), 'Embaralhar ordem das alternativas'),
-        h('div', { class: 'campo-label' }, 'Gabarito'), versoesEl,
-        h('div', { class: 'linha-botoes', style: { marginTop: '10px' } },
-          h('button', { class: 'btn btn-sm', onclick: async () => { if (av.colecaoId && !(await confirmar('Reembaralhar muda o gabarito. Provas já impressas deixarão de corresponder. Continuar?'))) return; gerarVersoes(av, qmap); agendar(); renderVersoes(); } }, ic('embaralhar'), 'Reembaralhar'))),
-      h('div', { class: 'cartao secao' },
-        h('h2', { style: { fontSize: '17px', marginTop: 0 } }, 'Concluir'),
-        h('div', { class: 'lista' },
-          h('a', { class: 'btn btn-primary', href: `#/formatador/imprimir/${av.id}`, onclick: () => salvar() }, ic('impressora'), 'Visualizar / Imprimir prova'),
-          h('button', { class: 'btn btn-ok', onclick: gerarGabaritos }, ic(av.colecaoId ? 'atualizar' : 'check'), av.colecaoId ? 'Atualizar gabaritos no Leitor' : 'Criar gabaritos no Leitor'),
-          av.colecaoId ? h('a', { class: 'btn', href: `#/leitor/colecao/${av.colecaoId}` }, ic('pasta'), 'Abrir coleção de gabaritos') : null)))));
+        listaQ),
+      h('div', { class: 'cartao secao av-previa' }, cartaoFormatacao.previa)));
   renderQuestoes();
   renderVersoes();
+}
+
+/** Valor de cada questão na ordem de um tipo (null se todas valem o mesmo). */
+function pesosVersao(av, v) {
+  if (!temPesos(av)) return null;
+  const vals = valoresQuestoes(av, v.ordem);
+  return v.ordem.map((id) => vals[id]);
 }
 
 /** Cria/atualiza a coleção de gabaritos do Leitor a partir da avaliação. */
@@ -414,6 +588,9 @@ export async function sincronizarColecao(av, qmap) {
   } else {
     col = { id: uid(), notaMaxima: parseFloat(String(av.valor).replace(',', '.')) || 10, gabaritos: [] };
   }
+  if (temPesos(av)) {
+    col.notaMaxima = totalProva(av); // com pesos, a nota é a soma dos pontos das questões certas
+  }
   col.nome = nome || 'Avaliação';
   col.nQuestoes = av.questoes.length;
   col.nAlternativas = nAlt;
@@ -422,6 +599,7 @@ export async function sincronizarColecao(av, qmap) {
     id: col.gabaritos[i]?.id || uid(),
     nome: `Tipo ${v.tipo}`,
     respostas: respostasVersao(v),
+    pesos: pesosVersao(av, v),
     anuladas: col.gabaritos[i]?.anuladas?.length === av.questoes.length ? col.gabaritos[i].anuladas : Array(av.questoes.length).fill(false),
   }));
   await db.put('colecoes', col);
@@ -441,6 +619,7 @@ function renderProva(av, qmap, v, { comTipo, gabSimples = null, indice = 0, nAlt
   // o gabarito simplificado já mostra o tipo marcado: sem caixa TIPO no cabeçalho
   const tipoNoCabecalho = comTipo && !gabSimples;
   const cabCampos = cabPers && av.cabecalho.manterCampos !== false && (av.mostrarCampos || instr.length);
+  const valores = valoresQuestoes(av, v.ordem);
   return `
   <div class="prova ${classesProva(av, F)}" style="${estiloProva(av, F)}">
     ${cabPers ? htmlCabecalho(av.cabecalho, { tipo: tipoNoCabecalho ? v.tipo : null }) : ''}
@@ -464,9 +643,10 @@ function renderProva(av, qmap, v, { comTipo, gabSimples = null, indice = 0, nAlt
       ${v.ordem.map((id, i) => {
         const q = qmap[id];
         const alts = [q.solucao, ...q.distratores];
-        return questaoHtml(av, F, i, q.comando, v.alts[id].map((ai) => alts[ai]));
+        return questaoHtml(av, F, i, q.comando, v.alts[id].map((ai) => alts[ai]), valores[id]);
       }).join('')}
     </div>
+    ${(av.mensagemFinal || '').trim() ? `<div class="prova-fim">${esc(av.mensagemFinal.trim()).replace(/\n/g, '<br>')}</div>` : ''}
     ${gabSimples === 'fim' ? gabHtml : ''}
   </div>`;
 }
@@ -492,16 +672,14 @@ export async function telaImprimir(app, tela, id) {
   const selV = h('select', { class: 'inp', style: { maxWidth: '200px' } },
     av.tipos > 1 ? h('option', { value: 'todas' }, 'Todos os tipos') : null,
     av.versoes.map((v, i) => h('option', { value: i }, av.tipos > 1 ? `Somente tipo ${v.tipo}` : 'Prova')));
-  const chkFolha = h('input', { type: 'checkbox', checked: true });
-  const chkGab = h('input', { type: 'checkbox', checked: true });
-  const chkSimples = h('input', { type: 'checkbox', checked: !!av.gabSimples });
-  const posSimples = h('select', { class: 'inp', style: { width: 'auto' }, disabled: !av.gabSimples },
-    h('option', { value: 'inicio', selected: av.gabSimplesPos !== 'fim' }, 'No início (abaixo do cabeçalho)'),
-    h('option', { value: 'fim', selected: av.gabSimplesPos === 'fim' }, 'No final (após a última questão)'));
+  // folha de respostas, gabarito simplificado e gabarito do professor: definidos no bloco "Gabarito" da avaliação
+  const chkFolha = { checked: av.imprimirFolha ?? true };
+  const chkGab = { checked: av.imprimirGabProf ?? true };
+  const chkSimples = { checked: !!av.gabSimples };
+  const posSimples = { value: av.gabSimplesPos === 'fim' ? 'fim' : 'inicio' };
   const selCols = h('select', { class: 'inp', style: { width: 'auto' }, title: 'Prova em colunas' }, [1, 2, 3].map((n) => h('option', { value: n, selected: +av.colunas === n }, n === 1 ? '1 coluna' : `${n} colunas`)));
   const chkLinha = h('input', { type: 'checkbox', checked: !!av.linhaDivisoria });
   const salvarOpcao = () => {
-    av.gabSimples = chkSimples.checked; av.gabSimplesPos = posSimples.value; posSimples.disabled = !chkSimples.checked;
     av.colunas = +selCols.value; av.linhaDivisoria = chkLinha.checked ? '1' : '';
     db.put('avaliacoes', av);
   };
@@ -523,13 +701,14 @@ export async function telaImprimir(app, tela, id) {
     return estiloPagina(av) + partes.join('');
   };
   const atualizar = () => { const F = formatacao(av), pp = papelDe(F); prev.style.setProperty('--margem', margemCss(F)); prev.style.setProperty('--pag-w', pp.w + 'mm'); prev.style.setProperty('--pag-h', pp.h + 'mm'); prev.innerHTML = montar(); prev.querySelectorAll('.pagina-folha').forEach((p) => p.classList.add('tela')); };
-  [chkSimples, posSimples, selCols, chkLinha].forEach((e) => e.addEventListener('change', salvarOpcao));
-  [selV, chkFolha, chkGab, chkSimples, posSimples, selCols, chkLinha].forEach((e) => e.addEventListener('change', atualizar));
+  [selCols, chkLinha].forEach((e) => e.addEventListener('change', salvarOpcao));
+  [selV, selCols, chkLinha].forEach((e) => e.addEventListener('change', atualizar));
   const imprimir = async () => {
     // folha de respostas ou gabarito simplificado: os gabaritos precisam existir no Leitor
     if ((chkFolha.checked && folhaOk) || (chkSimples.checked && nAlt <= 6)) {
       const col = av.colecaoId ? await db.get('colecoes', av.colecaoId) : null;
-      const desatualizada = !col || col.gabaritos.length !== av.versoes.length || col.gabaritos.some((g, i) => g.respostas.join() !== respostasVersao(av.versoes[i]).join());
+      const desatualizada = !col || col.gabaritos.length !== av.versoes.length || col.gabaritos.some((g, i) => g.respostas.join() !== respostasVersao(av.versoes[i]).join()
+        || JSON.stringify(g.pesos || null) !== JSON.stringify(pesosVersao(av, av.versoes[i])));
       if (desatualizada) { await sincronizarColecao(av, qmap); toast('Gabaritos criados/atualizados no Leitor.', 'ok'); }
     }
     imprimirPaginas(montar());
@@ -539,16 +718,14 @@ export async function telaImprimir(app, tela, id) {
     h('div', { class: 'cartao secao no-print' },
       h('div', { class: 'linha-botoes' },
         selV,
-        h('label', { class: 'campo-check', style: { margin: 0 } }, chkFolha, 'Folha de respostas (para o Leitor)'),
-        h('span', { class: 'linha-botoes', style: { gap: '6px' } }, h('label', { class: 'campo-check', style: { margin: 0 } }, chkSimples, 'Gabarito simplificado (para o Leitor)'), posSimples),
-        h('label', { class: 'campo-check', style: { margin: 0 } }, chkGab, 'Gabarito do professor'),
+        h('span', { class: 'dica', style: { margin: 0 } }, [chkFolha.checked ? 'Folha de respostas' : null, chkSimples.checked ? 'Gabarito simplificado' : null, chkGab.checked ? 'Gabarito do professor' : null].filter(Boolean).join(' · ') || 'Só a prova', ' (mude em Editar → Gabarito)'),
         h('span', { class: 'espaco' }),
         h('a', { class: 'btn', href: `#/formatador/avaliacao/${av.id}` }, 'Editar'),
         h('button', { class: 'btn btn-primary', onclick: imprimir }, ic('impressora'), 'Imprimir / Salvar PDF')),
       h('div', { class: 'linha-botoes', style: { marginTop: '10px' } }, h('span', { class: 'campo-label' }, 'Layout da prova:'), selCols,
         h('label', { class: 'campo-check', style: { margin: 0 } }, chkLinha, 'Linha divisória entre as questões')),
       chkSimples.checked && nAlt > 6 ? h('p', { class: 'dica', style: { color: 'var(--verm)' } }, 'O gabarito simplificado aceita até 6 alternativas.') : null,
-      !folhaOk ? h('p', { class: 'dica', style: { color: 'var(--verm)' } }, 'A folha de respostas não comporta esta quantidade de questões/alternativas.') : null,
+      chkFolha.checked && !folhaOk ? h('p', { class: 'dica', style: { color: 'var(--verm)' } }, 'A folha de respostas não comporta esta quantidade de questões/alternativas.') : null,
       h('p', { class: 'dica' }, 'Na janela de impressão, escolha "Salvar como PDF" para gerar um arquivo. Use papel A4 e escala 100%.')),
     prev);
   atualizar();
