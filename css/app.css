@@ -576,3 +576,14 @@ details.cartao.bloco-av > summary::before { content: none; }
 .fmt-rodape { position: absolute; bottom: calc(var(--minf) / 2 - 2mm); font: 9pt Arial, sans-serif; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fmt-rd-centro { left: 0; right: 0; text-align: center; }
 .fmt-rd-esq { left: var(--mesq); max-width: 55%; }
+
+/* janela Valores e pesos */
+.peso-topo { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 18px; }
+.peso-total-linha { display: flex; align-items: center; gap: 8px; }
+.peso-total { width: 110px; font-size: 18px; font-weight: 700; }
+.peso-ferramentas { margin: 10px 0 2px; }
+.peso-status.ok { color: var(--ver); font-weight: 600; }
+.chip-botao { border: 0; cursor: pointer; font: inherit; }
+.chip-botao:hover { filter: brightness(.95); }
+.peso-mesmo { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--texto-2); }
+.peso-mesmo .peso-inp { width: 70px; }

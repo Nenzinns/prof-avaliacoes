@@ -50,7 +50,7 @@ export function montarFaixa(av, fer, a) {
   const painelValor = () => {
     const p = fer.painelValor();
     p.querySelector('.fmt-gi-nota')?.remove();
-    p.append(h('button', { type: 'button', class: 'fmt-gi-mais', onclick: () => { fecharPop(); a.pesos(); } }, 'Definir Pesos das Questões…'),
+    p.append(h('button', { type: 'button', class: 'fmt-gi-mais', onclick: () => { fecharPop(); a.pesos(); } }, 'Valores e Pesos…'),
       h('small', { class: 'fmt-gi-nota' }, 'Sem pesos, o valor da prova é dividido igualmente. Os pesos também valem na correção pelo Leitor.'));
     return p;
   };
@@ -94,6 +94,7 @@ export function montarFaixa(av, fer, a) {
     botao({ icone: I('documento'), rotulo: 'Cabeçalho', titulo: 'Cabeçalho: título, escola, logotipo, professor(a), turma, data e valor', tam: 'g', acao: a.cabecalho }),
     galeria(I('estiloCab'), 'Estilo', fer.painelCab),
     galeria(I('instrucoes'), 'Instruções', painelInstrucoes),
+    botao({ icone: I('pesos'), rotulo: 'Valores e pesos', titulo: 'Valor total da prova e valor de cada questão', tam: 'g', acao: a.pesos }),
   ]);
   const gQuestoes = grupo('Questões', [
     botao({ icone: I('livros'), rotulo: 'Questões salvas', titulo: 'Adicionar questões do banco de questões', tam: 'g', acao: a.adicionarSalvas }),
@@ -156,7 +157,7 @@ export function montarFaixa(av, fer, a) {
   ]);
   const gExtras = grupo('Na prova', [
     galeria(I('valor'), 'Valor da questão', painelValor),
-    botao({ icone: I('pesos'), rotulo: 'Pesos', titulo: 'Valores diferentes por questão (ex.: uma vale 2,0 e as outras 1,0)', tam: 'g', acao: a.pesos }),
+    botao({ icone: I('pesos'), rotulo: 'Valores e pesos', titulo: 'Valor total da prova e valor de cada questão (ex.: uma vale 2,0 e as outras 1,0)', tam: 'g', acao: a.pesos }),
     galeria(I('mensagem'), 'Mensagem final', painelMensagem),
   ]);
   const gFundo = grupo('Fundo e rodapé', [

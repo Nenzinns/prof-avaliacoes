@@ -1,5 +1,5 @@
 // Service worker: permite usar o app offline. Estratégia "rede primeiro, cache como reserva".
-const CACHE = 'prof-v21';
+const CACHE = 'prof-v22';
 const ARQUIVOS = [
   './', 'index.html', 'privacidade.html', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png', 'icons/pix-qr.svg',
   'css/app.css', 'css/editor.css', 'css/print.css',

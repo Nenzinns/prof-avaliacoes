@@ -311,7 +311,7 @@ export async function telaAvaliacao(app, tela, id) {
 
   // lista de questões
   const listaQ = h('div', { class: 'lista lista-ordenavel' });
-  const resumo = h('span', { class: 'chip' });
+  const resumo = h('button', { class: 'chip chip-botao', type: 'button', onclick: () => dialogoPesos() });
   const invalidar = () => { av.versoes = []; agendar(); renderVersoes(); };
   const renderQuestoes = () => {
     resumo.textContent = `${av.questoes.length} questão(ões)`;
@@ -320,6 +320,7 @@ export async function telaAvaliacao(app, tela, id) {
     const soma = Object.values(valores).reduce((s, x) => s + x, 0);
     resumo.textContent += ` · ${fmtPontos(soma)} de ${fmtPontos(totalProva(av))} pontos`;
     resumo.classList.toggle('chip-alerta', Math.abs(soma - totalProva(av)) > 0.01);
+    resumo.title = 'Toque para mudar o valor da prova e os pesos';
     listaQ.replaceChildren(...av.questoes.map((qid, i) => {
       const q = qmap[qid];
       const mover = (d) => { const j = i + d; if (j < 0 || j >= av.questoes.length) return; [av.questoes[i], av.questoes[j]] = [av.questoes[j], av.questoes[i]]; invalidar(); renderQuestoes(); };
@@ -337,41 +338,105 @@ export async function telaAvaliacao(app, tela, id) {
     }));
   };
 
-  /** Pesos das questões: cada uma pode ter um valor; as em branco dividem o que sobrar do valor da prova. */
-  const dialogoPesos = async (foco) => {
+  /**
+   * Valores e pesos: o valor total da prova e o valor de cada questão.
+   * As questões em branco dividem igualmente o que sobra do valor total.
+   */
+  const dialogoPesos = async () => {
     if (!av.questoes.length) { toast('Adicione questões primeiro.', 'erro'); return; }
-    const total = totalProva(av);
+    const num = (v) => +String(v ?? '').replace(',', '.') || 0;
+    const r2 = (v) => Math.round(v * 100) / 100;
     const inps = {};
-    const somaEl = h('p', { class: 'dica' });
+    const inpTotal = h('input', { class: 'inp peso-total', type: 'number', min: 0.5, step: 0.5, value: totalProva(av), 'aria-label': 'Valor total da prova' });
+    const chkProp = h('input', { type: 'checkbox', checked: true });
+    const somaEl = h('p', { class: 'dica', role: 'status' });
+    let totalAnterior = totalProva(av);
+
     const linhas = av.questoes.map((qid, i) => {
       const q = qmap[qid];
       const inp = h('input', { class: 'inp peso-inp', type: 'number', min: 0, step: 0.25, value: +av.pesos?.[qid] > 0 ? av.pesos[qid] : '', 'aria-label': `Valor da questão ${i + 1}` });
       inps[qid] = inp;
-      inp.addEventListener('input', atualizarSoma);
+      inp.addEventListener('input', atualizar);
       return h('div', { class: 'peso-linha' }, h('span', { class: 'num-q' }, i + 1), h('div', { class: 'peso-txt' }, textoDeHtml(q.comando) || '(imagem/tabela)'), inp, h('span', { class: 'dica' }, 'pt'));
     });
-    function atualizarSoma() {
-      const tmp = { ...av, pesos: Object.fromEntries(Object.entries(inps).map(([id, i]) => [id, +String(i.value).replace(',', '.') || 0])) };
+    const pesosDigitados = () => Object.fromEntries(Object.entries(inps).map(([id, i]) => [id, num(i.value)]));
+    function atualizar() {
+      const total = num(inpTotal.value);
+      const tmp = { ...av, valor: String(total), pesos: pesosDigitados() };
       const vals = valoresQuestoes(tmp, av.questoes);
       Object.entries(inps).forEach(([id, i]) => { i.placeholder = fmtPontos(vals[id]); });
-      const soma = Object.values(vals).reduce((s, x) => s + x, 0);
-      const fixos = Object.values(tmp.pesos).reduce((s, x) => s + x, 0);
-      somaEl.className = 'dica' + (Math.abs(soma - total) > 0.01 ? ' peso-alerta' : '');
-      somaEl.textContent = Math.abs(soma - total) > 0.01
-        ? `Atenção: os pesos somam ${fmtPontos(fixos)} pontos, mais do que o valor da prova (${fmtPontos(total)}). Ajuste os pesos ou o valor no Cabeçalho.`
-        : `Soma: ${fmtPontos(soma)} de ${fmtPontos(total)} pontos. Os campos em branco dividem igualmente o que sobra.`;
+      const fixos = Object.values(tmp.pesos).reduce((x, y) => x + y, 0);
+      const brancos = Object.values(tmp.pesos).filter((v) => !(v > 0)).length;
+      const soma = Object.values(vals).reduce((x, y) => x + y, 0);
+      const ok = total > 0 && Math.abs(soma - total) <= 0.01 && !(brancos === 0 && Math.abs(fixos - total) > 0.01);
+      somaEl.className = 'dica peso-status' + (ok ? ' ok' : ' peso-alerta');
+      if (!(total > 0)) somaEl.textContent = 'Digite o valor total da prova.';
+      else if (brancos === 0 && Math.abs(fixos - total) > 0.01) somaEl.textContent = `As questões somam ${fmtPontos(fixos)} pontos, mas a prova vale ${fmtPontos(total)}. Use "Valor da prova = soma das questões" ou ajuste os valores.`;
+      else if (fixos > total + 0.01) somaEl.textContent = `Os valores digitados somam ${fmtPontos(fixos)} pontos, mais do que a prova vale (${fmtPontos(total)}).`;
+      else somaEl.textContent = `✓ Soma: ${fmtPontos(soma)} de ${fmtPontos(total)} pontos.${brancos ? ` ${brancos} questão(ões) em branco dividem igualmente o que sobra.` : ''}`;
     }
-    atualizarSoma();
-    const r = await modal({
-      titulo: 'Pesos das questões', largo: true,
-      corpo: h('div', {}, h('p', { class: 'dica' }, `Valor da prova: ${fmtPontos(total)} pontos (mude em Cabeçalho → Valor). Digite o valor das questões que valem diferente; deixe em branco para dividir o restante igualmente.`),
-        h('div', { class: 'peso-lista' }, linhas), somaEl),
-      acoes: [{ label: 'Limpar pesos', value: 'limpar' }, { label: 'Cancelar', value: null }, { label: 'OK', primary: true, value: 'ok' }],
+    // mudar o valor total: se marcado, os valores digitados acompanham na mesma proporção
+    inpTotal.addEventListener('input', () => {
+      const novo = num(inpTotal.value);
+      if (chkProp.checked && novo > 0 && totalAnterior > 0) {
+        const k = novo / totalAnterior;
+        Object.values(inps).forEach((i) => { if (num(i.value) > 0) i.value = r2(num(i.value) * k); });
+      }
+      if (novo > 0) totalAnterior = novo;
+      atualizar();
     });
-    if (!r) return;
-    av.pesos = r === 'limpar' ? {} : Object.fromEntries(Object.entries(inps).map(([id, i]) => [id, +String(i.value).replace(',', '.') || 0]).filter(([, v]) => v > 0));
+    const acao = (rot, titulo, fn) => h('button', { class: 'btn btn-sm', type: 'button', title: titulo, onclick: () => { fn(); atualizar(); } }, rot);
+    const inpMesmo = h('input', { class: 'inp peso-inp', type: 'number', min: 0, step: 0.25, placeholder: '1,0', 'aria-label': 'Mesmo valor para todas as questões' });
+    const ferramentas = h('div', { class: 'linha-botoes peso-ferramentas' },
+      acao('Dividir igualmente', 'Apaga os valores digitados: o total é dividido igualmente entre as questões', () => { Object.values(inps).forEach((i) => { i.value = ''; }); }),
+      acao('Valor da prova = soma das questões', 'O valor total passa a ser a soma dos valores de todas as questões', () => {
+        const pesos = Object.values(pesosDigitados());
+        if (pesos.some((v) => !(v > 0))) { toast('Preencha o valor de todas as questões para usar este atalho.'); return; }
+        inpTotal.value = r2(pesos.reduce((x, y) => x + y, 0)); totalAnterior = num(inpTotal.value);
+      }),
+      h('span', { class: 'peso-mesmo' }, 'Mesmo valor para todas:', inpMesmo,
+        acao('Aplicar', 'Dá este valor a cada questão e ajusta o total', () => {
+          const v = num(inpMesmo.value);
+          if (!(v > 0)) { toast('Digite o valor de cada questão.'); return; }
+          Object.values(inps).forEach((i) => { i.value = ''; });
+          inpTotal.value = r2(v * av.questoes.length); totalAnterior = num(inpTotal.value);
+        })));
+    atualizar();
+
+    const r = await modal({
+      titulo: 'Valores e pesos', largo: true,
+      corpo: h('div', {},
+        h('div', { class: 'peso-topo' },
+          h('label', { class: 'campo' }, h('span', { class: 'campo-label' }, 'Valor total da prova'), h('div', { class: 'peso-total-linha' }, inpTotal, h('span', { class: 'dica' }, 'pontos'))),
+          h('label', { class: 'campo-check' }, chkProp, 'Ao mudar o total, ajustar os valores das questões na mesma proporção')),
+        ferramentas,
+        h('p', { class: 'dica' }, 'Digite o valor das questões que valem diferente. As que ficarem em branco dividem igualmente o que sobra do total.'),
+        h('div', { class: 'peso-lista' }, linhas), somaEl),
+      acoes: [{ label: 'Cancelar', value: null }, {
+        label: 'Aplicar', primary: true, onClick: () => {
+          const total = num(inpTotal.value);
+          if (!(total > 0)) { toast('Digite o valor total da prova.', 'erro'); return false; }
+          const pesos = pesosDigitados();
+          const fixos = Object.values(pesos).reduce((x, y) => x + y, 0);
+          if (fixos > total + 0.01) { toast(`Os valores somam ${fmtPontos(fixos)}, mais do que o total (${fmtPontos(total)}).`, 'erro'); return false; }
+          return true;
+        }, value: 'ok',
+      }],
+    });
+    if (r !== 'ok') return;
+    const total = r2(num(inpTotal.value));
+    const totalTxt = fmtPontos(total);
+    // mantém o jeito que o professor escreveu o valor (ex.: "10,0 pontos" → "12,0 pontos")
+    av.valor = /\d/.test(av.valor || '') ? String(av.valor).replace(/\d+(?:[.,]\d+)?/, totalTxt) : `${totalTxt} pontos`;
+    const pesos = pesosDigitados();
+    const brancos = Object.values(pesos).filter((v) => !(v > 0)).length;
+    // todas iguais e somando o total: guarda sem pesos (divisão igual)
+    const valores = Object.values(pesos).filter((v) => v > 0);
+    const todasIguais = !brancos && valores.every((v) => Math.abs(v - valores[0]) < 0.001) && Math.abs(valores[0] * valores.length - total) < 0.01;
+    av.pesos = todasIguais ? {} : Object.fromEntries(Object.entries(pesos).filter(([, v]) => v > 0));
     agendar(); renderQuestoes(); faixa?.atualizar();
-    if (av.colecaoId) toast('Toque em "Atualizar gabaritos no Leitor" para a correção usar os novos pesos.');
+    if (av.colecaoId) toast('Valores atualizados. Toque em "Atualizar gabaritos no Leitor" para a correção usar o novo valor.');
+    else toast('Valores atualizados', 'ok');
   };
 
   const adicionarDoBanco = async () => {
@@ -590,9 +655,7 @@ export async function sincronizarColecao(av, qmap) {
   } else {
     col = { id: uid(), notaMaxima: parseFloat(String(av.valor).replace(',', '.')) || 10, gabaritos: [] };
   }
-  if (temPesos(av)) {
-    col.notaMaxima = totalProva(av); // com pesos, a nota é a soma dos pontos das questões certas
-  }
+  if (temPesos(av) || /\d/.test(av.valor || '')) col.notaMaxima = totalProva(av); // a nota máxima acompanha o valor da prova
   col.nome = nome || 'Avaliação';
   col.nQuestoes = av.questoes.length;
   col.nAlternativas = nAlt;
@@ -709,7 +772,7 @@ export async function telaImprimir(app, tela, id) {
     // folha de respostas ou gabarito simplificado: os gabaritos precisam existir no Leitor
     if ((chkFolha.checked && folhaOk) || (chkSimples.checked && nAlt <= 6)) {
       const col = av.colecaoId ? await db.get('colecoes', av.colecaoId) : null;
-      const desatualizada = !col || col.gabaritos.length !== av.versoes.length || col.gabaritos.some((g, i) => g.respostas.join() !== respostasVersao(av.versoes[i]).join()
+      const desatualizada = !col || col.gabaritos.length !== av.versoes.length || ((temPesos(av) || /\d/.test(av.valor || '')) && col.notaMaxima !== totalProva(av)) || col.gabaritos.some((g, i) => g.respostas.join() !== respostasVersao(av.versoes[i]).join()
         || JSON.stringify(g.pesos || null) !== JSON.stringify(pesosVersao(av, av.versoes[i])));
       if (desatualizada) { await sincronizarColecao(av, qmap); toast('Gabaritos criados/atualizados no Leitor.', 'ok'); }
     }
