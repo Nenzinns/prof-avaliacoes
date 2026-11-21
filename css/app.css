@@ -427,7 +427,8 @@ details.cartao[open] > summary { margin-bottom: 12px; }
 .cfg-status { margin: 6px 0 10px; font-size: 14px; color: var(--texto-2); }
 .cfg-status.ok { color: var(--ver); font-weight: 600; }
 .cfg-status.erro { color: var(--verm); }
-#btn-config { color: #fff; text-decoration: none; }
+#btn-config, #btn-apoie { color: #fff; text-decoration: none; }
+#btn-apoie svg { width: 21px; height: 21px; }
 #btn-config svg { width: 22px; height: 22px; }
 .btn-ia { gap: 6px; }
 .ia-item { display: flex; gap: 10px; align-items: flex-start; }
@@ -443,7 +444,7 @@ details.cartao[open] > summary { margin-bottom: 12px; }
 .cfg-nome { font-weight: 600; }
 .cfg-sub { font-size: 13px; color: var(--texto-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, Consolas, monospace; }
 .cfg-vazio { color: var(--texto-2); font-size: 14px; }
-body:not([data-rota="inicio"]) #btn-config { display: none; }
+body:not([data-rota="inicio"]) #btn-config, body:not([data-rota="inicio"]) #btn-apoie { display: none; }
 #btn-voltar svg { width: 22px; height: 22px; }
 .fav-btn { border: 0; background: none; cursor: pointer; font-size: 20px; line-height: 1; padding: 4px; color: #c9cede; }
 .fav-btn.on { color: #e0a800; }
@@ -473,3 +474,16 @@ body:not([data-rota="inicio"]) #btn-config { display: none; }
 .conta-info { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .btn-link-perigo { color: var(--verm); }
 .conta-politica { margin: 12px 0 0; }
+
+/* ---------- Apoie o Prof ---------- */
+.apoie { max-width: 520px; margin: 0 auto; }
+.apoie-cartao { text-align: center; padding: 24px 20px; }
+.apoie-cartao h2 { margin: 4px 0 8px; font-size: 22px; }
+.apoie-coracao { font-size: 34px; color: #e0457b; line-height: 1; }
+.apoie-qr { display: block; width: 240px; max-width: 100%; height: auto; margin: 18px auto 8px; border: 1px solid var(--borda); border-radius: 12px; padding: 8px; background: #fff; image-rendering: pixelated; }
+.apoie-ou { margin: 18px 0 10px; color: var(--texto-2); font-size: 13px; display: flex; align-items: center; gap: 10px; }
+.apoie-ou::before, .apoie-ou::after { content: ""; flex: 1; border-top: 1px solid var(--borda); }
+.apoie .btn-grande { width: 100%; justify-content: center; }
+.apoie-codigo { margin-top: 10px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; resize: none; word-break: break-all; }
+.apoie-recebedor { margin-top: 12px; }
+.apoie-obrigado { text-align: center; margin-top: 12px; }

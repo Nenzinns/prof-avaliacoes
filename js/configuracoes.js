@@ -118,7 +118,11 @@ export function telaConfiguracoes(app, tela) {
       'Só o pedido (disciplina, assunto, série…) é enviado à IA; nenhum dado de aluno sai do aplicativo.'));
 
   render();
-  app.append(h('div', { class: 'cfg' }, secaoConta(), ia, backup, secaoApagar(exportar)));
+  const apoie = h('section', { class: 'cartao secao' },
+    h('h2', { class: 'cfg-tit' }, 'Apoie o Prof'),
+    h('p', { class: 'dica' }, 'Se o Prof ajuda no seu trabalho, você pode contribuir com qualquer valor por Pix.'),
+    h('div', { class: 'linha-botoes' }, h('a', { class: 'btn', href: '#/apoie' }, '♥ Contribuir com Pix')));
+  app.append(h('div', { class: 'cfg' }, secaoConta(), ia, backup, secaoApagar(exportar), apoie));
 }
 
 async function exportar() {

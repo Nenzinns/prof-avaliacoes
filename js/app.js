@@ -5,6 +5,7 @@ import * as questoes from './questoes.js';
 import * as avaliacoes from './avaliacoes.js';
 import { telaConfiguracoes } from './configuracoes.js';
 import { iniciarConta } from './conta.js';
+import { telaApoie } from './apoie.js';
 import { iniciarSincronizacao } from './sincronizacao.js';
 
 const app = document.getElementById('app');
@@ -25,6 +26,7 @@ export const tela = {
 const rotas = [
   [/^\/?$/, inicio],
   [/^\/configuracoes$/, telaConfiguracoes],
+  [/^\/apoie$/, telaApoie],
   [/^\/leitor$/, leitor.telaLeitor],
   [/^\/leitor\/corrigir\/([^/]+)$/, leitor.telaCorrigir],
   [/^\/leitor\/resultados\/([^/]+)$/, leitor.telaResultados],
