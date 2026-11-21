@@ -472,3 +472,4 @@ body:not([data-rota="inicio"]) #btn-config { display: none; }
 .conta-inicial { display: inline-flex; align-items: center; justify-content: center; background: var(--pri); color: #fff; font-weight: 700; font-size: 18px; }
 .conta-info { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .btn-link-perigo { color: var(--verm); }
+.conta-politica { margin: 12px 0 0; }

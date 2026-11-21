@@ -120,8 +120,8 @@ async function dialogoEmail() {
   const email = h('input', { class: 'inp', type: 'email', autocomplete: 'email', placeholder: 'seu@email.com' });
   const codigo = h('input', { class: 'inp', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 10, placeholder: 'Código de 6 dígitos' });
   const etapa2 = h('div', { hidden: true },
-    h('p', {}, 'Abra o e-mail e toque no link ', h('b', {}, '"Sign in"'), ' neste mesmo aparelho. O Prof abre já com a sua conta.'),
-    h('label', { class: 'campo' }, h('span', { class: 'campo-label' }, 'Ou, se o e-mail trouxer um código, digite-o aqui'), codigo));
+    h('label', { class: 'campo' }, h('span', { class: 'campo-label' }, 'Código recebido por e-mail'), codigo),
+    h('p', { class: 'dica' }, 'Também é possível tocar no link do e-mail, desde que seja aberto neste mesmo aparelho e navegador.'));
   const aviso = h('p', { class: 'dica', role: 'status' });
   let enviado = false;
   // se o login terminar pelo link (em outra aba), fecha este diálogo
@@ -134,7 +134,7 @@ async function dialogoEmail() {
   return modal({
     titulo: 'Entrar com e-mail',
     corpo: h('div', {},
-      h('p', { class: 'dica' }, 'Enviaremos um link de acesso para o seu e-mail. Não é preciso criar senha.'),
+      h('p', { class: 'dica' }, 'Enviaremos um código de acesso para o seu e-mail. Não é preciso criar senha.'),
       h('label', { class: 'campo' }, h('span', { class: 'campo-label' }, 'E-mail'), email),
       etapa2, aviso),
     acoes: [{ label: 'Cancelar', value: null }, {
@@ -149,7 +149,7 @@ async function dialogoEmail() {
             enviado = true;
             email.disabled = true;
             etapa2.hidden = false;
-            aviso.textContent = 'E-mail enviado. Se não aparecer na caixa de entrada, veja o spam.';
+            aviso.textContent = 'Código enviado. Se o e-mail não aparecer na caixa de entrada, veja o spam.';
             codigo.focus();
             return false;
           }
@@ -234,5 +234,6 @@ export function secaoConta() {
   render();
   // garante o estado atualizado (sessão salva de outro acesso)
   if (!usuarioAtual && temSessaoSalva()) cliente().then((c) => c.auth.getSession()).then(({ data }) => { usuarioAtual = data.session?.user || null; render(); }).catch(() => {});
+  sec.append(h('p', { class: 'dica conta-politica' }, h('a', { href: 'privacidade.html', target: '_blank', rel: 'noopener' }, 'Política de privacidade')));
   return sec;
 }
