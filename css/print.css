@@ -119,3 +119,5 @@
 .enun-negrito .questao > .q-conteudo { font-weight: bold; }
 .enun-italico .questao > .q-conteudo { font-style: italic; }
 .titulo-sublinhado .pc-titulo { text-decoration: underline; text-underline-offset: 2px; }
+/* o gabarito simplificado é lido pelo Leitor: fica sobre fundo branco, sem marca d'água por baixo */
+.gab-simples-wrap > svg { background: #fff; }

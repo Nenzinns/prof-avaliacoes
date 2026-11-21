@@ -6,7 +6,7 @@ const TOPICOS = [
     titulo: 'Primeiros passos',
     itens: [
       ['Entrar ou usar sem conta', 'Ao abrir o Prof você pode entrar com Google ou com e-mail (um código de 6 dígitos chega na sua caixa de entrada, sem senha). Também pode tocar em "Continuar sem conta": o app funciona normalmente, mas os dados ficam só neste aparelho.'],
-      ['Instalar no celular ou computador', 'No Chrome do Android, toque no menu ⋮ e em "Instalar app" (ou "Adicionar à tela inicial"). No iPhone, use o Safari: Compartilhar → "Adicionar à Tela de Início". No computador, clique no ícone de instalar na barra de endereço. Depois de instalado, o Prof funciona mesmo sem internet.'],
+      ['Instalar no celular ou computador', 'No celular, abra o Prof no navegador, toque no menu (⋮ ou o botão Compartilhar) e escolha "Instalar app" ou "Adicionar à tela inicial". No computador, clique no ícone de instalar na barra de endereço. Depois de instalado, o Prof funciona mesmo sem internet.'],
       ['Navegação', 'A tela inicial leva ao Leitor de Gabarito e às Avaliações. A seta no canto superior esquerdo volta uma tela. No topo ficam também a Ajuda (?), o Apoie (♥) e as Configurações (engrenagem).'],
     ],
   },
@@ -25,7 +25,7 @@ const TOPICOS = [
     itens: [
       ['Banco de questões', 'Em Avaliações → Questões, cadastre questões de múltipla escolha: o comando, a alternativa correta (solução) e as incorretas (distratores). O editor aceita negrito, listas, tabelas e imagens (é possível cortar e redimensionar). Marque com ★ as favoritas.'],
       ['Gerar questões com IA', 'Com uma chave de IA cadastrada em Configurações, toque em "Gerar com IA", informe disciplina, assunto e série e, se quiser, anexe material de referência (livro, apostila, slides ou fotos). Revise sempre as questões geradas antes de usar.'],
-      ['Faixa de opções da avaliação', 'No topo da avaliação há uma faixa como a do Word. Página Inicial: Cabeçalho, Estilo do cabeçalho, Instruções (com modelos prontos), questões, Fonte, Parágrafo, padrões e Imprimir. Layout: margens, papel, colunas, número de página, espaçamento e linha entre questões, valor de cada questão e mensagem final. Questões: modelos de numeração e de alternativas. Gabarito: folha de respostas, gabarito simplificado, gabarito do professor, versões e Leitor. Cada botão com seta abre uma lista de modelos e, no final, a opção personalizada. As setas ↶ ↷ desfazem e refazem (Ctrl+Z / Ctrl+Y).'],
+      ['Faixa de opções da avaliação', 'No topo da avaliação há uma faixa de opções, como nos editores de texto. Página Inicial: Cabeçalho, Estilo do cabeçalho, Instruções (com modelos prontos), questões, Fonte, Parágrafo, padrões e Imprimir. Layout: margens, papel, colunas, número de página, espaçamento e linha entre questões, valor de cada questão e mensagem final. Questões: modelos de numeração e de alternativas. Gabarito: folha de respostas, gabarito simplificado, gabarito do professor, versões e Leitor. Cada botão com seta abre uma lista de modelos e, no final, a opção personalizada. As setas ↶ ↷ desfazem e refazem (Ctrl+Z / Ctrl+Y).'],
       ['Gerar a prova inteira com IA', 'Toque em "Gerar prova com IA", informe disciplina, assunto, série, quantidade de questões e, se quiser, anexe o material de referência pelo clipe (livro, apostila, slides, fotos). Revise as questões geradas: as escolhidas entram na avaliação e no seu banco de questões.'],
       ['Montar a avaliação', 'Toque em "+ Nova avaliação". Use Cabeçalho para título, escola, logotipo, professor(a), turma, data e valor (ou uma imagem de cabeçalho personalizada) e Instruções para o texto aos alunos. Adicione questões salvas, crie novas ou gere com IA; use ▲▼ para mudar a ordem. A pré-visualização ao lado mostra a página e a quantidade estimada de páginas.'],
       ['Padrões de formatação', '"Padrão ABNT" aplica as normas da ABNT; "Padrão Customizado" aplica a formatação que você salvou; "Definir como padrão" salva a formatação atual para as próximas avaliações. O botão do padrão em uso fica destacado.'],
@@ -39,7 +39,7 @@ const TOPICOS = [
   {
     titulo: 'Conta e aparelhos',
     itens: [
-      ['Como funciona a sincronização', 'Quando você entra na conta, questões, avaliações, gabaritos, chaves de IA e a formatação padrão passam de um aparelho para o outro, como no WhatsApp: o servidor só entrega as alterações e as apaga assim que todos os seus aparelhos as recebem. Nada fica guardado na nuvem.'],
+      ['Como funciona a sincronização', 'Quando você entra na conta, questões, avaliações, gabaritos, chaves de IA e a formatação padrão passam de um aparelho para o outro como mensagens: o servidor só entrega as alterações e as apaga assim que todos os seus aparelhos as recebem. Nada fica guardado na nuvem.'],
       ['Aparelho novo', 'Entre com a mesma conta no aparelho novo e abra o Prof em um aparelho que você já usa: ele envia uma cópia completa automaticamente. Deixe os dois com o app aberto e com internet até terminar.'],
       ['Aparelho que ficou muito tempo sem abrir', 'As alterações esperam no máximo 30 dias. Depois disso, o aparelho recebe uma cópia completa de novo a partir de outro aparelho seu.'],
       ['Aparelhos conectados', 'Em Configurações → Conta você vê os aparelhos ligados à conta e pode desconectar os que não usa mais.'],

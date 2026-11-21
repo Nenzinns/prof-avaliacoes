@@ -328,7 +328,7 @@ export async function gerarQuestoes(p, { sinal, progresso, material } = {}) {
     const comVisao = chaves.filter((k) => LEEM_IMAGEM.includes(k.provedor));
     if (!comVisao.length) {
       throw new Error(`Imagens e PDFs digitalizados precisam de uma chave do Google Gemini, Anthropic (Claude), OpenAI ou Mistral. ` +
-        `Sua(s) chave(s) (${[...new Set(chaves.map((k) => NOMES[k.provedor]))].join(', ')}) só leem texto: envie PDF com texto, Word ou .txt.`);
+        `Sua(s) chave(s) (${[...new Set(chaves.map((k) => NOMES[k.provedor]))].join(', ')}) só leem texto: envie PDF com texto, documento .docx ou .txt.`);
     }
     chaves = comVisao;
   }
@@ -371,7 +371,7 @@ export async function dialogoGerar({ inicial = {}, umaSo = false, prova = false,
     dificuldade: h('select', { class: 'inp' }, h('option', { value: '' }, '—'), ['Fácil', 'Média', 'Difícil'].map((d) => h('option', { selected: inicial.dificuldade === d }, d))),
     quantidade: h('input', { class: 'inp', type: 'number', min: 1, max: 20, value: prova ? 10 : 5 }),
     alternativas: h('select', { class: 'inp' }, [2, 3, 4, 5, 6].map((n) => h('option', { value: n, selected: n === (inicial.alternativas || 5) }, n))),
-    observacao: h('textarea', { class: 'inp', rows: 3, placeholder: prova ? 'Opcional. Ex.: prova bimestral cobrindo os capítulos 3 e 4, metade fáceis e metade médias, com 2 questões de interpretação de gráfico…' : 'Opcional. Ex.: questões contextualizadas, estilo ENEM, com tabela de dados…' }),
+    observacao: h('textarea', { class: 'inp', rows: 3, placeholder: prova ? 'Opcional. Ex.: prova bimestral cobrindo os capítulos 3 e 4, metade fáceis e metade médias, com 2 questões de interpretação de gráfico…' : 'Opcional. Ex.: questões contextualizadas, no estilo de vestibular, com tabela de dados…' }),
   };
   const aviso = h('p', { class: 'dica', role: 'status' });
 
@@ -400,7 +400,7 @@ export async function dialogoGerar({ inicial = {}, umaSo = false, prova = false,
     desenharAnexos();
   };
   const seletor = h('input', { type: 'file', multiple: true, accept: ACEITOS, style: { display: 'none' }, onchange: () => { adicionar([...seletor.files]); seletor.value = ''; } });
-  const dica = 'Anexar material (livro didático, apostila, slides, fotos das páginas): PDF, Word, PowerPoint, texto ou imagem';
+  const dica = 'Anexar material (livro didático, apostila, slides, fotos das páginas): PDF, documento (.docx), apresentação (.pptx), texto ou imagem';
   const btnClipe = h('button', {
     type: 'button', class: 'btn btn-clipe', title: dica, 'aria-label': dica, onclick: () => seletor.click(),
     html: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +

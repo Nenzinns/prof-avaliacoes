@@ -286,6 +286,13 @@ export async function telaResultados(app, tela, colId) {
   if (!res.length) { app.append(vazio('grafico', 'Nenhuma prova corrigida nesta coleção ainda.', h('a', { class: 'btn btn-primary', href: `#/leitor/corrigir/${col.id}` }, 'Corrigir provas'))); return; }
 
   const gabDe = (r) => col.gabaritos.find((g) => g.id === r.gabaritoId);
+  // o gabarito pode ter mudado depois da correção (resposta corrigida, questão anulada, pesos): recalcula
+  for (const r of res) {
+    const g = gabDe(r);
+    if (!g || r.respostas?.length !== g.respostas.length) continue;
+    const { acertos, nota } = corrigir(col, g, r.respostas);
+    if (acertos !== r.acertos || nota !== r.nota) { r.acertos = acertos; r.nota = nota; await db.put('resultados', r, { manterData: true }); }
+  }
   const notas = res.map((r) => r.nota);
   const media = notas.reduce((a, b) => a + b, 0) / notas.length;
   const fmt = (n) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 });

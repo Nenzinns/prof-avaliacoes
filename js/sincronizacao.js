@@ -1,4 +1,4 @@
-// Sincronização entre os aparelhos de quem entrou na conta, como no WhatsApp:
+// Sincronização entre os aparelhos de quem entrou na conta, como mensagens:
 // o servidor NÃO guarda os dados, só entrega. Cada aparelho tem uma "caixa de correio" no Supabase.
 // - Cada alteração local fica numa lista de "pendentes" e é colocada na caixa de cada um dos outros aparelhos.
 // - Ao abrir, o aparelho pega o que está na sua caixa, aplica e APAGA do servidor (registro e imagens).
@@ -146,7 +146,12 @@ async function registrar(c, u) {
   // primeira vez: se já houver outros aparelhos, pede a eles uma cópia completa
   const { count, error: e1 } = await c.from(APARELHOS).select('id', { count: 'exact', head: true }).neq('id', me);
   if (e1) throw e1;
-  const { error: e2 } = await c.from(APARELHOS).insert({ id: me, nome: nomeAparelho(), precisa_copia: (count || 0) > 0 });
+  let { error: e2 } = await c.from(APARELHOS).insert({ id: me, nome: nomeAparelho(), precisa_copia: (count || 0) > 0 });
+  if (e2?.code === '23505') {
+    // identificador ainda registrado em outra conta (a saída anterior não chegou ao servidor): usa um novo
+    try { localStorage.removeItem(LS_APARELHO); } catch { /* sem armazenamento */ }
+    ({ error: e2 } = await c.from(APARELHOS).insert({ id: idAparelho(), nome: nomeAparelho(), precisa_copia: (count || 0) > 0 }));
+  }
   if (e2) throw e2;
   alterar((s) => { s.registrado = true; });
   return true;

@@ -139,7 +139,9 @@ export function estiloPagina(av) {
   const num = F.numPagina ? ` @${caixa} { content: ${conteudo}; font: 10pt Arial, sans-serif; color: #333; }` : '';
   const txt = (av.rodape || '').trim().replace(/\s*\n\s*/g, ' · ');
   const caixaRod = F.numPagina && F.posNumPagina !== 'topo-dir' ? 'bottom-left' : 'bottom-center';
-  const rod = txt ? ` @${caixaRod} { content: "${txt.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"; font: 9pt Arial, sans-serif; color: #444; }` : '';
+  // o texto vai dentro de <style>: escapa \, aspas e < (para não fechar a tag)
+  const cssTxt = txt.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/</g, '\\3C ');
+  const rod = txt ? ` @${caixaRod} { content: "${cssTxt}"; font: 9pt Arial, sans-serif; color: #444; }` : '';
   return `<style>@page { size: ${p.w}mm ${p.h}mm; margin: ${margemCss(F)};${num}${rod} } @page folha { size: A4; margin: 0; @top-right { content: none; } @bottom-center { content: none; } @bottom-right { content: none; } }</style>`;
 }
 

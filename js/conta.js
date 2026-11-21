@@ -224,7 +224,7 @@ export function secaoConta() {
             },
           }, 'Sair')),
         linhaSync,
-        h('p', { class: 'dica' }, 'Questões, avaliações, gabaritos, chaves de IA e formatação padrão passam de um aparelho para o outro, como no WhatsApp: o servidor só entrega as alterações e as apaga assim que seus aparelhos as recebem. Nada fica guardado na nuvem, por isso mantenha um backup em dia. Os resultados dos alunos ficam só em cada aparelho.'),
+        h('p', { class: 'dica' }, 'Questões, avaliações, gabaritos, chaves de IA e formatação padrão passam de um aparelho para o outro como mensagens: o servidor só entrega as alterações e as apaga assim que seus aparelhos as recebem. Nada fica guardado na nuvem, por isso mantenha um backup em dia. Os resultados dos alunos ficam só em cada aparelho.'),
         h('div', { class: 'linha-botoes' },
           h('button', { class: 'btn btn-sm', type: 'button', onclick: () => sincronizar() }, 'Sincronizar agora')),
         h('h3', { class: 'cfg-subtit' }, 'Aparelhos conectados'),

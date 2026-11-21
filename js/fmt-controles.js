@@ -172,7 +172,7 @@ export function montarFormatacao(av, deps) {
   const aplicarPadraoABNT = () => { aplicarABNT(av); refazerTudo(); mudou(); toast('Padrão ABNT aplicado', 'ok'); };
   const barraPadrao = h('div', { class: 'fmt-barra-padrao' },
     h('div', { class: 'linha-botoes' }, btnABNT, btnCustom,
-      h('button', { class: 'btn btn-sm', type: 'button', title: 'Usar esta formatação nas próximas avaliações (como o "Definir como Padrão" do Word)', onclick: definirPadrao }, 'Definir como padrão')));
+      h('button', { class: 'btn btn-sm', type: 'button', title: 'Usar esta formatação nas próximas avaliações', onclick: definirPadrao }, 'Definir como padrão')));
   // estado dos padrões para a faixa de opções
   const estadoPadroes = () => {
     const p = padraoUsuario();
@@ -228,7 +228,7 @@ export function montarFormatacao(av, deps) {
       op('rodape-centro', 'Fim da página · centro', '"Página 1 de 2"', DESENHO.numPagRodC),
       op('rodape-dir', 'Fim da página · direita', '"Página 1 de 2"', DESENHO.numPagRodD),
       op('', 'Sem número de página', '', DESENHO.semNum),
-      h('small', { class: 'fmt-gi-nota' }, 'Aparece na impressão/PDF (Chrome e Edge).'));
+      h('small', { class: 'fmt-gi-nota' }, 'Aparece na impressão e no PDF.'));
   };
   const resumoLayout = h('div', { class: 'fmt-layout-resumo' });
   const secLayout = secao('layout', IC.layout, 'Layout da página', () => `${papelDe(F()).nome} · ${+av.colunas} col.`,
