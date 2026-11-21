@@ -1,6 +1,7 @@
-// Tela de Configurações: chaves de IA (fila de prioridade) e backup/restauração.
+// Tela de Configurações: conta, chaves de IA (fila de prioridade) e backup/restauração.
 import { h, toast, modal, baixar, escolherArquivo, confirmar } from './ui.js';
 import { db, exportarTudo, importarTudo } from './db.js';
+import { secaoConta } from './conta.js';
 import { lerChaves, adicionarChave, removerChave, reordenarChaves, mascarar, NOMES } from './ia.js';
 
 export function telaConfiguracoes(app, tela) {
@@ -117,7 +118,7 @@ export function telaConfiguracoes(app, tela) {
       'Só o pedido (disciplina, assunto, série…) é enviado à IA; nenhum dado de aluno sai do aplicativo.'));
 
   render();
-  app.append(h('div', { class: 'cfg' }, ia, backup, secaoApagar(exportar)));
+  app.append(h('div', { class: 'cfg' }, secaoConta(), ia, backup, secaoApagar(exportar)));
 }
 
 async function exportar() {

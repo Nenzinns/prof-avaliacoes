@@ -4,6 +4,7 @@ import * as gabaritos from './gabaritos.js';
 import * as questoes from './questoes.js';
 import * as avaliacoes from './avaliacoes.js';
 import { telaConfiguracoes } from './configuracoes.js';
+import { iniciarConta } from './conta.js';
 
 const app = document.getElementById('app');
 const tituloEl = document.getElementById('titulo-tela');
@@ -100,6 +101,7 @@ const iconeFormatador = `<svg viewBox="0 0 64 64" fill="none" stroke="currentCol
 
 window.addEventListener('hashchange', navegar);
 navegar();
+iniciarConta();
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
