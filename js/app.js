@@ -4,9 +4,11 @@ import * as gabaritos from './gabaritos.js';
 import * as questoes from './questoes.js';
 import * as avaliacoes from './avaliacoes.js';
 import { telaConfiguracoes } from './configuracoes.js';
-import { iniciarConta } from './conta.js';
+import { iniciarConta, telaLogin, temSessaoSalva, voltouDoLogin, convidadoNestaSessao } from './conta.js';
 import { telaApoie } from './apoie.js';
+import { telaAjuda } from './ajuda.js';
 import { iniciarSincronizacao } from './sincronizacao.js';
+import { avisoBackup } from './lembrete-backup.js';
 
 const app = document.getElementById('app');
 const tituloEl = document.getElementById('titulo-tela');
@@ -27,6 +29,7 @@ const rotas = [
   [/^\/?$/, inicio],
   [/^\/configuracoes$/, telaConfiguracoes],
   [/^\/apoie$/, telaApoie],
+  [/^\/ajuda$/, telaAjuda],
   [/^\/leitor$/, leitor.telaLeitor],
   [/^\/leitor\/corrigir\/([^/]+)$/, leitor.telaCorrigir],
   [/^\/leitor\/resultados\/([^/]+)$/, leitor.telaResultados],
@@ -83,28 +86,34 @@ voltarBtn.addEventListener('click', () => {
 
 function inicio(app, tela) {
   tela.titulo('');
-  app.append(
-    h('section', { class: 'inicio' },
-      h('div', { class: 'inicio-cabecalho' },
-        h('h1', {}, 'Prof'),
-        h('p', {}, 'Correção de gabaritos e formatação de avaliações')),
-      h('div', { class: 'inicio-botoes' },
-        h('a', { href: '#/leitor', class: 'botao-grande leitor' },
-          h('span', { class: 'bg-icone', html: iconeLeitor }),
-          h('span', { class: 'bg-titulo' }, 'Leitor de Gabarito'),
-          h('span', { class: 'bg-desc' }, 'Corrija provas com a câmera ou escaneando as folhas de resposta')),
-        h('a', { href: '#/formatador', class: 'botao-grande formatador' },
-          h('span', { class: 'bg-icone', html: iconeFormatador }),
-          h('span', { class: 'bg-titulo' }, 'Formatador de Avaliações'),
-          h('span', { class: 'bg-desc' }, 'Monte provas a partir das suas questões')))));
+  const secao = h('section', { class: 'inicio' },
+    h('div', { class: 'inicio-cabecalho' },
+      h('h1', {}, 'Prof'),
+      h('p', {}, 'Correção de gabaritos e formatação de avaliações')),
+    h('div', { class: 'inicio-botoes' },
+      h('a', { href: '#/leitor', class: 'botao-grande leitor' },
+        h('span', { class: 'bg-icone', html: iconeLeitor }),
+        h('span', { class: 'bg-titulo' }, 'Leitor de Gabarito'),
+        h('span', { class: 'bg-desc' }, 'Corrija provas com a câmera ou escaneando as folhas de resposta')),
+      h('a', { href: '#/formatador', class: 'botao-grande formatador' },
+        h('span', { class: 'bg-icone', html: iconeFormatador }),
+        h('span', { class: 'bg-titulo' }, 'Avaliações'),
+        h('span', { class: 'bg-desc' }, 'Monte provas a partir das suas questões'))));
+  app.append(secao);
+  avisoBackup().then((aviso) => { if (aviso && secao.isConnected) secao.append(aviso); }).catch(() => {});
 }
 
 const iconeLeitor = `<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 18V10a2 2 0 0 1 2-2h8M46 8h8a2 2 0 0 1 2 2v8M56 46v8a2 2 0 0 1-2 2h-8M18 56h-8a2 2 0 0 1-2-2v-8"/><circle cx="22" cy="24" r="4" fill="currentColor"/><circle cx="34" cy="24" r="4"/><circle cx="46" cy="24" r="4"/><circle cx="22" cy="36" r="4"/><circle cx="34" cy="36" r="4" fill="currentColor"/><circle cx="46" cy="36" r="4"/><path d="M14 46h36" stroke-dasharray="2 5"/></svg>`;
 const iconeFormatador = `<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M16 6h24l12 12v38a2 2 0 0 1-2 2H16a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/><path d="M40 6v12h12"/><path d="M22 28h20M22 36h20M22 44h12"/><rect x="36" y="40" width="8" height="8" rx="1"/></svg>`;
 
-window.addEventListener('hashchange', navegar);
-navegar();
-iniciarConta().finally(iniciarSincronizacao);
+// Antes da tela inicial: tela de login, sempre que não houver conta conectada
+// (a não ser que a pessoa já tenha escolhido "Continuar sem conta" desde que abriu o app).
+(async () => {
+  if (!temSessaoSalva() && !voltouDoLogin() && !convidadoNestaSessao()) await telaLogin();
+  window.addEventListener('hashchange', navegar);
+  navegar();
+  iniciarConta().finally(iniciarSincronizacao);
+})();
 
 // chegou alteração de outro aparelho: atualiza as telas de lista (as de edição ficam como estão)
 const TELAS_DE_LISTA = /^\/?$|^\/formatador(\/questoes|\/avaliacoes)?$|^\/leitor(\/gabaritos)?$/;

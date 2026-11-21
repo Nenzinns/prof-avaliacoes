@@ -5,7 +5,7 @@
 import { h, esc, modal, campo, toast, confirmar } from './ui.js';
 import { svg, abrirPop, fecharPop, menu, combo } from './editor-ui.js';
 import {
-  PAPEIS, MARGENS_PRESET, margemDe, papelDe, fmtCm, divergenciasABNT, aplicarABNT, definirComoPadrao, restaurarPadraoABNT, padraoUsuario,
+  PAPEIS, MARGENS_PRESET, margemDe, papelDe, fmtCm, divergenciasABNT, aplicarABNT, definirComoPadrao, padraoUsuario,
 } from './formato-pagina.js';
 
 // ------------------------------------------------------------------ desenhos (SVG)
@@ -55,6 +55,7 @@ const IC = {
   colunas: S('0 0 24 24', '<rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M12 3v18M6 7h3M6 10h3M6 13h3M15 7h3M15 10h3M15 13h3"/>'),
   numPagina: S('0 0 24 24', '<rect x="4" y="2" width="16" height="20" rx="1.5"/><path d="M8 7h8M8 11h8"/><text x="12" y="19.5" font-size="6" text-anchor="middle" fill="currentColor" stroke="none" font-family="Arial">1</text>'),
   espacamento: svg('espacamento'),
+  estrela: S('0 0 24 24', '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>'),
   abnt: S('0 0 24 24', '<path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5z"/><path d="m8.5 12 2.5 2.5 4.5-5"/>'),
 };
 
@@ -119,10 +120,15 @@ const pilha = (rotulo, ...controles) => h('div', { class: 'fmt-pilha' }, h('span
 
 function secao(id, icone, titulo, resumo, ...conteudo) {
   const res = h('span', { class: 'fmt-resumo' });
-  const d = h('details', { class: 'fmt-secao', open: true, 'data-secao': id },
+  const d = h('details', { class: 'fmt-secao', 'data-secao': id },
     h('summary', {}, h('span', { class: 'fmt-sec-ic', html: icone }), h('span', { class: 'fmt-sec-tit' }, titulo), res, h('span', { class: 'fmt-sec-seta', html: svg('caret') })),
     h('div', { class: 'fmt-sec-corpo' }, ...conteudo));
   d.atualizarResumo = () => { res.textContent = resumo(); };
+  // abrir um bloco fecha o que estava aberto
+  d.addEventListener('toggle', () => {
+    if (!d.open) return;
+    d.parentElement?.querySelectorAll(':scope > details.fmt-secao[open]').forEach((o) => { if (o !== d) o.open = false; });
+  });
   return d;
 }
 
@@ -145,18 +151,27 @@ export function montarFormatacao(av, deps) {
   };
   const F = () => formatacao(av);
 
-  // ================= barra ABNT / padrão
-  const selo = h('div', { class: 'fmt-selo' });
-  const barraPadrao = h('div', { class: 'fmt-barra-padrao' }, selo,
-    h('div', { class: 'linha-botoes' },
-      h('button', { class: 'btn btn-sm', title: 'Aplicar as normas da ABNT (NBR 14724)', onclick: () => { aplicarABNT(av); refazerTudo(); mudou(); toast('Padrão ABNT aplicado', 'ok'); } },
-        h('span', { class: 'fmt-ic', html: IC.abnt }), 'Padrão ABNT'),
-      h('button', { class: 'btn btn-sm', title: 'Usar esta formatação nas próximas avaliações (como o "Definir como Padrão" do Word)', onclick: async () => {
+  // ================= padrões: ABNT, customizado (o do professor) e "Definir como padrão"
+  const btnABNT = h('button', { class: 'btn btn-sm', type: 'button', title: 'Aplicar as normas da ABNT (NBR 14724)', onclick: () => { aplicarABNT(av); refazerTudo(); mudou(); toast('Padrão ABNT aplicado', 'ok'); } },
+    h('span', { class: 'fmt-ic', html: IC.abnt }), 'Padrão ABNT');
+  const btnCustom = h('button', { class: 'btn btn-sm', type: 'button', title: 'Aplicar a formatação que você definiu como padrão', onclick: () => {
+    const p = padraoUsuario();
+    if (!p) { toast('Você ainda não definiu um padrão. Ajuste a formatação e toque em "Definir como padrão".'); return; }
+    Object.assign(av, structuredClone(p)); refazerTudo(); mudou(); toast('Seu padrão foi aplicado', 'ok');
+  } }, h('span', { class: 'fmt-ic', html: IC.estrela }), 'Padrão Customizado');
+  const barraPadrao = h('div', { class: 'fmt-barra-padrao' },
+    h('div', { class: 'linha-botoes' }, btnABNT, btnCustom,
+      h('button', { class: 'btn btn-sm', type: 'button', title: 'Usar esta formatação nas próximas avaliações (como o "Definir como Padrão" do Word)', onclick: async () => {
         if (!(await confirmar('Usar a formatação atual como padrão para as novas avaliações?', { ok: 'Definir como padrão' }))) return;
         toast(definirComoPadrao(av) ? 'Formatação definida como padrão para novas avaliações' : 'Não foi possível salvar o padrão neste navegador', 'ok');
         atualizar();
-      } }, '★ Definir como padrão'),
-      h('button', { class: 'btn btn-sm btn-link', title: 'Novas avaliações voltam a usar o padrão ABNT', onclick: () => { restaurarPadraoABNT(); toast('Novas avaliações voltam ao padrão ABNT'); atualizar(); } }, 'Restaurar padrão ABNT')));
+      } }, 'Definir como padrão')));
+  const marcarPadroes = () => {
+    btnABNT.classList.toggle('ativo', !divergenciasABNT(av, F()).length);
+    const p = padraoUsuario();
+    btnCustom.classList.toggle('ativo', !!p && Object.entries(p).every(([k, v]) => JSON.stringify(av[k]) === JSON.stringify(v)));
+    btnCustom.classList.toggle('apagado', !p);
+  };
 
   // ================= pré-visualização (mini-página)
   const folha = h('div', { class: 'fmt-folha' });
@@ -398,14 +413,7 @@ export function montarFormatacao(av, deps) {
   function atualizar() {
     const f = F();
     const p = papelDe(f), m = margemDe(f);
-    // selo ABNT
-    const div = divergenciasABNT(av, f);
-    selo.className = `fmt-selo ${div.length ? '' : 'ok'}`;
-    selo.replaceChildren(h('span', { class: 'fmt-ic', html: IC.abnt }),
-      h('span', { class: 'fmt-selo-txt' }, div.length
-        ? [h('b', {}, 'Fora do padrão ABNT'), h('small', {}, `Ajuste: ${div.slice(0, 3).join(', ')}${div.length > 3 ? '…' : ''}`)]
-        : [h('b', {}, 'Segue a ABNT'), h('small', {}, 'NBR 14724: A4, margens 3/2/3/2 cm, 12 pt, espaço 1,5, justificado')],
-      padraoUsuario() ? h('small', { class: 'fmt-padrao-usuario' }, '★ Novas avaliações usam o seu padrão') : null));
+    marcarPadroes();
     // controles
     if (document.activeElement !== cbFonte.inp) cbFonte.inp.value = av.fonte;
     if (document.activeElement !== cbTam.inp) cbTam.inp.value = String(av.tamanho).replace('.', ',');

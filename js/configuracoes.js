@@ -3,6 +3,8 @@ import { h, toast, modal, baixar, escolherArquivo, confirmar } from './ui.js';
 import { db, exportarTudo, importarTudo } from './db.js';
 import { secaoConta } from './conta.js';
 import { lerChaves, adicionarChave, removerChave, reordenarChaves, mascarar, NOMES } from './ia.js';
+import { ic } from './icones.js';
+import { marcarBackupFeito } from './lembrete-backup.js';
 
 export function telaConfiguracoes(app, tela) {
   tela.titulo('Configurações');
@@ -10,12 +12,13 @@ export function telaConfiguracoes(app, tela) {
   // ---------------------------------------------------------------- backup
   const backup = h('section', { class: 'cartao secao' },
     h('h2', { class: 'cfg-tit' }, 'Backup e restauração'),
-    h('p', { class: 'dica' }, 'Exporte um backup para guardar uma cópia dos seus dados (inclusive os resultados dos alunos, que não vão para a nuvem).'),
+    h('p', { class: 'dica' }, 'Exporte um backup para guardar uma cópia de todos os seus dados, inclusive os resultados dos alunos. Como nada fica guardado na nuvem, o backup é a sua garantia se o aparelho for perdido.'),
     h('div', { class: 'linha-botoes' },
       h('button', {
         class: 'btn btn-primary', onclick: async () => {
           const dados = await exportarTudo();
           baixar(`prof-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(dados));
+          marcarBackupFeito();
         },
       }, 'Exportar backup'),
       h('button', {
@@ -114,20 +117,21 @@ export function telaConfiguracoes(app, tela) {
     lista, dicaFila,
     h('div', { class: 'cfg-chave' }, chave, mostrar, adicionar),
     status,
-    h('p', { class: 'dica' }, 'As chaves ficam salvas neste aparelho (e na sua conta, se você entrou) e não vão no backup. Não salve chaves em computador compartilhado. ',
+    h('p', { class: 'dica' }, 'As chaves ficam salvas neste aparelho (e são enviadas aos seus outros aparelhos, se você entrou na conta) e não vão no backup. Não salve chaves em computador compartilhado. ',
       'Só o pedido (disciplina, assunto, série…) é enviado à IA; nenhum dado de aluno sai do aplicativo.'));
 
   render();
   const apoie = h('section', { class: 'cartao secao' },
     h('h2', { class: 'cfg-tit' }, 'Apoie o Prof'),
     h('p', { class: 'dica' }, 'Se o Prof ajuda no seu trabalho, você pode contribuir com qualquer valor por Pix.'),
-    h('div', { class: 'linha-botoes' }, h('a', { class: 'btn', href: '#/apoie' }, '♥ Contribuir com Pix')));
+    h('div', { class: 'linha-botoes' }, h('a', { class: 'btn', href: '#/apoie' }, ic('coracao'), 'Contribuir com Pix')));
   app.append(h('div', { class: 'cfg' }, secaoConta(), ia, backup, secaoApagar(exportar), apoie));
 }
 
 async function exportar() {
   const dados = await exportarTudo();
   baixar(`prof-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(dados));
+  marcarBackupFeito();
 }
 
 // ---------------------------------------------------------------- apagar dados

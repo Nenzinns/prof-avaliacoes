@@ -1,6 +1,7 @@
 import { h, uid, toast, modal, confirmar, campo, vazio, LETRAS, dataBR } from './ui.js';
 import { db } from './db.js';
 import { maxQuestoes, svgFolha } from './omr-layout.js';
+import { ic } from './icones.js';
 
 export function novoGabarito(nome, nQuestoes) {
   return { id: uid(), nome, respostas: Array(nQuestoes).fill(null), anuladas: Array(nQuestoes).fill(false) };
@@ -19,7 +20,7 @@ export async function telaColecoes(app, tela) {
     h('h2', {}, 'Coleções de gabaritos'),
     h('button', { class: 'btn btn-primary', onclick: () => dialogoAdicionar(tela) }, '+ Adicionar gabarito')));
   if (!cols.length) {
-    app.append(vazio('📁', 'Nenhuma coleção ainda. Crie um gabarito para começar — ele ficará guardado em uma coleção (pasta).',
+    app.append(vazio('pasta', 'Nenhuma coleção ainda. Crie um gabarito para começar — ele ficará guardado em uma coleção (pasta).',
       h('button', { class: 'btn btn-primary', onclick: () => dialogoAdicionar(tela) }, '+ Adicionar gabarito')));
     return;
   }
@@ -33,7 +34,7 @@ export async function telaColecoes(app, tela) {
 export async function dialogoAdicionar(tela, colecaoFixa = null) {
   const cols = await db.getAll('colecoes');
   const selCol = h('select', {},
-    h('option', { value: '' }, '➕ Nova coleção'),
+    h('option', { value: '' }, '+ Nova coleção'),
     cols.map((c) => h('option', { value: c.id, selected: colecaoFixa?.id === c.id }, c.nome)));
   const nomeCol = h('input', { type: 'text', placeholder: 'Ex.: Prova de Matemática — 1º bimestre' });
   const nomeGab = h('input', { type: 'text', value: 'Tipo A' });
@@ -92,7 +93,7 @@ export async function dialogoAdicionar(tela, colecaoFixa = null) {
 // ---------------------------------------------------------------- Uma coleção
 export async function telaColecao(app, tela, colId) {
   const col = await db.get('colecoes', colId);
-  if (!col) { app.append(vazio('❓', 'Coleção não encontrada.')); return; }
+  if (!col) { app.append(vazio('busca', 'Coleção não encontrada.')); return; }
   tela.titulo(col.nome);
   const resultados = await db.byIndex('resultados', 'colecaoId', colId);
   const salvar = () => db.put('colecoes', col);
@@ -104,11 +105,11 @@ export async function telaColecao(app, tela, colId) {
     h('div', { class: 'cartao secao' },
       h('div', { class: 'form-grade' }, campo('Nome da coleção', nomeInp), campo('Nota máxima', notaInp)),
       h('div', {}, h('span', { class: 'chip' }, `${col.nQuestoes} questões`), h('span', { class: 'chip' }, `${col.nAlternativas} alternativas`),
-        col.avaliacaoId ? h('a', { class: 'chip verde', href: `#/formatador/avaliacao/${col.avaliacaoId}` }, 'Gerada pelo Formatador ↗') : null),
+        col.avaliacaoId ? h('a', { class: 'chip verde', href: `#/formatador/avaliacao/${col.avaliacaoId}` }, 'Gerada em Avaliações ↗') : null),
       h('div', { class: 'linha-botoes', style: { marginTop: '14px' } },
-        h('a', { class: 'btn btn-ok', href: `#/leitor/corrigir/${col.id}` }, '📷 Corrigir provas'),
-        h('a', { class: 'btn', href: `#/leitor/resultados/${col.id}` }, `📊 Resultados (${resultados.length})`),
-        h('a', { class: 'btn', href: `#/leitor/folhas/${col.id}` }, '🖨️ Imprimir folhas de resposta'),
+        h('a', { class: 'btn btn-ok', href: `#/leitor/corrigir/${col.id}` }, ic('camera'), 'Corrigir provas'),
+        h('a', { class: 'btn', href: `#/leitor/resultados/${col.id}` }, ic('grafico'), `Resultados (${resultados.length})`),
+        h('a', { class: 'btn', href: `#/leitor/folhas/${col.id}` }, ic('impressora'), 'Imprimir folhas de resposta'),
         h('span', { class: 'espaco' }),
         h('button', {
           class: 'btn btn-danger btn-sm', onclick: async () => {
@@ -159,7 +160,7 @@ export async function telaColecao(app, tela, colId) {
 export async function telaGabarito(app, tela, colId, gabId) {
   const col = await db.get('colecoes', colId);
   const g = col?.gabaritos.find((x) => x.id === gabId);
-  if (!g) { app.append(vazio('❓', 'Gabarito não encontrado.')); return; }
+  if (!g) { app.append(vazio('busca', 'Gabarito não encontrado.')); return; }
   tela.titulo(`${col.nome} · ${g.nome}`);
   let timer = null;
   const salvar = () => { clearTimeout(timer); timer = setTimeout(() => db.put('colecoes', col), 250); };
@@ -212,7 +213,7 @@ export async function telaGabarito(app, tela, colId, gabId) {
 // ---------------------------------------------------------------- Impressão das folhas de resposta
 export async function telaFolhas(app, tela, colId) {
   const col = await db.get('colecoes', colId);
-  if (!col) { app.append(vazio('❓', 'Coleção não encontrada.')); return; }
+  if (!col) { app.append(vazio('busca', 'Coleção não encontrada.')); return; }
   tela.titulo('Folhas de resposta');
   const tipos = col.gabaritos.map((g) => g.nome.replace(/^Tipo\s+/i, '').slice(0, 3));
   const titulo = h('input', { class: 'inp', value: col.nome });
@@ -238,7 +239,7 @@ export async function telaFolhas(app, tela, colId) {
   [titulo, sub, copias, marcarTipo].forEach((el) => el.addEventListener('input', atualizar));
 
   const imprimir = () => imprimirPaginas(paginas().map((s) => `<div class="pagina-folha">${s}</div>`).join(''));
-  tela.acoes(h('button', { class: 'btn btn-primary', onclick: imprimir }, '🖨️ Imprimir'));
+  tela.acoes(h('button', { class: 'btn btn-primary', onclick: imprimir }, ic('impressora'), 'Imprimir'));
   app.append(
     h('div', { class: 'cartao secao' },
       h('div', { class: 'form-grade' },
@@ -246,7 +247,7 @@ export async function telaFolhas(app, tela, colId) {
         campo(col.gabaritos.length > 1 && marcarTipo.checked ? 'Cópias de cada tipo' : 'Cópias', copias)),
       col.gabaritos.length > 1 ? h('label', { class: 'campo-check' }, marcarTipo, 'Imprimir uma folha para cada tipo, com a bolinha do tipo já preenchida') : null,
       h('p', { class: 'dica' }, 'Imprima em papel A4, escala 100% ("tamanho real"), sem ajustar à página. Os 4 quadrados pretos dos cantos e a barra superior são usados pela leitura.'),
-      h('button', { class: 'btn btn-primary', onclick: imprimir }, '🖨️ Imprimir / Salvar PDF')),
+      h('button', { class: 'btn btn-primary', onclick: imprimir }, ic('impressora'), 'Imprimir / Salvar PDF')),
     preview);
   atualizar();
 }

@@ -1,4 +1,4 @@
-# Prof — Avaliações
+# Prof
 
 Aplicativo web (funciona no computador e no celular, inclusive offline) com duas ferramentas:
 
@@ -9,7 +9,7 @@ Aplicativo web (funciona no computador e no celular, inclusive offline) com duas
 - **Correção**: pela câmera (captura automática quando a folha é encontrada) ou enviando fotos/PDFs escaneados (vários de uma vez). Sempre há uma tela para conferir e ajustar antes de salvar.
 - **Resultados**: notas, média, acertos por questão e exportação em CSV (abre no Excel).
 
-## Formatador de Avaliações
+## Avaliações
 - Histórico das avaliações geradas + botão de criar nova.
 - **Questões**: comando (editor completo), solução e distratores, com disciplina/assunto/série/dificuldade e busca.
 - **Editor no estilo do Word**: uma faixa de opções única no topo da questão, que age no campo onde está o cursor (comando, solução ou distrator).
@@ -26,4 +26,11 @@ node serve.js
 ```
 Abra http://localhost:5173. Para usar a câmera no celular o app precisa ser servido por **https** (ex.: GitHub Pages, Netlify) — basta publicar esta pasta como site estático. No celular, use "Adicionar à tela inicial" para instalar.
 
-Os dados ficam salvos no próprio navegador (IndexedDB). Use **Backup e restauração** na tela inicial para exportar/importar.
+Os dados ficam salvos no próprio navegador (IndexedDB). Use **Backup e restauração** em Configurações para exportar/importar.
+
+## Conta e sincronização
+Ao abrir, o app mostra uma tela de login (Google ou código por e-mail) com a opção **Continuar sem conta**.
+Com conta, a sincronização funciona como no WhatsApp: o Supabase serve só de **caixa de correio** entre os aparelhos
+(tabelas `aparelhos` e `caixa`, imagens em `imagens/<conta>/<aparelho>/`). Cada aparelho recebe, aplica e apaga
+do servidor o que chegou para ele; aparelhos novos recebem uma cópia completa de outro aparelho da conta.
+O SQL fica em `supabase/esquema.sql`.

@@ -6,6 +6,7 @@ import { imprimirPaginas } from './gabaritos.js';
 import { editarCabecalho, htmlCabecalho } from './cabecalho.js';
 import { montarFormatacao } from './fmt-controles.js';
 import { margemDe, margemCss, papelDe, formatacaoInicial } from './formato-pagina.js';
+import { ic } from './icones.js';
 
 const ESTILOS_ALT = { 'a)': (i) => `${LETRAS[i].toLowerCase()})`, '(a)': (i) => `(${LETRAS[i].toLowerCase()})`, 'A)': (i) => `${LETRAS[i]})`, '(A)': (i) => `(${LETRAS[i]})`, 'A.': (i) => `${LETRAS[i]}.`, 'a.': (i) => `${LETRAS[i].toLowerCase()}.`, 'A': (i) => LETRAS[i] };
 
@@ -143,7 +144,7 @@ function itemAvaliacao(a, tela, aoMudar) {
       h('div', { class: 'item-titulo' }, a.titulo || 'Sem título'),
       h('div', { class: 'item-sub' }, [a.disciplina, a.turma, `${a.questoes.length} questões`, a.tipos > 1 ? `${a.tipos} tipos` : null, 'editada em ' + dataBR(a.atualizadoEm)].filter(Boolean).join(' · '))),
     h('div', { class: 'linha-botoes' },
-      h('a', { class: 'btn btn-sm', href: `#/formatador/imprimir/${a.id}` }, '🖨️ Imprimir'),
+      h('a', { class: 'btn btn-sm', href: `#/formatador/imprimir/${a.id}` }, ic('impressora'), 'Imprimir'),
       h('a', { class: 'btn btn-sm btn-primary', href: `#/formatador/avaliacao/${a.id}` }, 'Abrir'),
       h('button', {
         class: 'btn btn-sm', title: 'Duplicar', onclick: async () => {
@@ -156,7 +157,7 @@ function itemAvaliacao(a, tela, aoMudar) {
           if (!(await confirmar(`Excluir a avaliação "${a.titulo}"? As questões continuam salvas.`, { ok: 'Excluir', perigo: true }))) return;
           await db.del('avaliacoes', a.id); e.target.closest('.item').remove(); toast('Avaliação excluída');
         },
-      }, '🗑')));
+      }, ic('lixeira'))));
 }
 
 function itemQuestaoResumo(q, aoMudar) {
@@ -176,7 +177,7 @@ function grupos({ favoritos, recentes }, render) {
 }
 
 export async function telaFormatador(app, tela) {
-  tela.titulo('Formatador de Avaliações');
+  tela.titulo('Avaliações');
   const avs = await db.getAll('avaliacoes');
   const qs = await db.getAll('questoes');
   const recarregar = () => { app.replaceChildren(); telaFormatador(app, tela); };
@@ -189,7 +190,7 @@ export async function telaFormatador(app, tela) {
     avs.length ? [
       grupos(dAv, (a) => itemAvaliacao(a, tela, recarregar)),
       avs.length > mostradasAv ? h('a', { class: 'btn btn-link ver-todas', href: '#/formatador/avaliacoes' }, `Ver todas as avaliações (${avs.length})`) : null,
-    ] : vazio('📄', 'Nenhuma avaliação criada ainda.')));
+    ] : vazio('documento', 'Nenhuma avaliação criada ainda.')));
 
   const dQ = destaques(qs);
   const disc = [...new Set(qs.map((q) => q.disciplina).filter(Boolean))];
@@ -200,7 +201,7 @@ export async function telaFormatador(app, tela) {
       disc.length ? h('div', { class: 'item-sub', style: { marginBottom: '10px' } }, disc.slice(0, 8).map((d) => h('span', { class: 'chip' }, d))) : null,
       grupos(dQ, (q) => itemQuestaoResumo(q, recarregar)),
       h('a', { class: 'btn btn-link ver-todas', href: '#/formatador/questoes' }, `Ver todas as questões (${qs.length})`),
-    ] : vazio('📝', 'Cadastre questões para montar suas avaliações.')));
+    ] : vazio('questao', 'Cadastre questões para montar suas avaliações.')));
 }
 
 /** Lista completa das avaliações. */
@@ -208,7 +209,7 @@ export async function telaAvaliacoes(app, tela) {
   tela.titulo('Todas as avaliações');
   const avs = (await db.getAll('avaliacoes')).sort((a, b) => (b.favorito ? 1 : 0) - (a.favorito ? 1 : 0) || b.atualizadoEm - a.atualizadoEm);
   app.append(h('div', { class: 'secao-head' }, h('h2', {}, `${avs.length} avaliação(ões)`), h('a', { class: 'btn btn-primary', href: '#/formatador/avaliacao/nova' }, '+ Nova avaliação')));
-  app.append(avs.length ? h('div', { class: 'lista' }, avs.map((a) => itemAvaliacao(a, tela))) : vazio('📄', 'Nenhuma avaliação criada ainda.'));
+  app.append(avs.length ? h('div', { class: 'lista' }, avs.map((a) => itemAvaliacao(a, tela))) : vazio('documento', 'Nenhuma avaliação criada ainda.'));
 }
 
 // ---------------------------------------------------------------- Editor da avaliação
@@ -222,7 +223,7 @@ export async function telaAvaliacao(app, tela, id) {
     id = n.id;
   }
   const av = await db.get('avaliacoes', id);
-  if (!av) { app.append(vazio('❓', 'Avaliação não encontrada.')); return; }
+  if (!av) { app.append(vazio('busca', 'Avaliação não encontrada.')); return; }
   const qmap = await carregarQuestoes();
   av.questoes = av.questoes.filter((qid) => qmap[qid]);
   tela.titulo(av.titulo || 'Avaliação');
@@ -260,7 +261,7 @@ export async function telaAvaliacao(app, tela, id) {
   const invalidar = () => { av.versoes = []; agendar(); renderVersoes(); };
   const renderQuestoes = () => {
     resumo.textContent = `${av.questoes.length} questão(ões)`;
-    if (!av.questoes.length) { listaQ.replaceChildren(vazio('📝', 'Nenhuma questão na avaliação ainda.')); return; }
+    if (!av.questoes.length) { listaQ.replaceChildren(vazio('questao', 'Nenhuma questão na avaliação ainda.')); return; }
     listaQ.replaceChildren(...av.questoes.map((qid, i) => {
       const q = qmap[qid];
       const mover = (d) => { const j = i + d; if (j < 0 || j >= av.questoes.length) return; [av.questoes[i], av.questoes[j]] = [av.questoes[j], av.questoes[i]]; invalidar(); renderQuestoes(); };
@@ -355,11 +356,9 @@ export async function telaAvaliacao(app, tela, id) {
           h('button', { class: 'btn', onclick: async () => {
             const n = await editarCabecalho(c?.src ? { ...c } : null);
             if (n) { av.cabecalho = n; agendar(); renderCab(); }
-          } }, c?.src ? '🖼 Reativar cabeçalho personalizado' : '🖼 Cabeçalho personalizado')));
+          } }, ic('imagem'), c?.src ? 'Reativar cabeçalho personalizado' : 'Cabeçalho personalizado')));
   };
   renderCab();
-
-  tela.acoes(h('a', { class: 'btn btn-primary', href: `#/formatador/imprimir/${av.id}`, onclick: () => salvar() }, '🖨️ Visualizar / Imprimir'));
 
   app.append(h('div', { class: 'duas-col' },
     h('div', {},
@@ -374,7 +373,7 @@ export async function telaAvaliacao(app, tela, id) {
         h('label', { class: 'campo-check' }, (() => { const c = h('input', { type: 'checkbox', checked: av.mostrarCampos }); c.addEventListener('change', () => { av.mostrarCampos = c.checked; agendar(); }); return c; })(), 'Campos para o aluno preencher (nome, nº, data, nota)')),
       h('div', { class: 'secao' },
         h('div', { class: 'secao-head' }, h('h2', {}, 'Questões '), resumo,
-          h('button', { class: 'btn', onclick: adicionarDoBanco }, '📚 Adicionar questões salvas'),
+          h('button', { class: 'btn', onclick: adicionarDoBanco }, ic('livros'), 'Adicionar questões salvas'),
           h('a', { class: 'btn btn-primary', href: `#/formatador/questao/nova?avaliacao=${av.id}`, onclick: () => salvar() }, '+ Nova questão')),
         listaQ)),
     h('div', {},
@@ -389,13 +388,13 @@ export async function telaAvaliacao(app, tela, id) {
         h('label', { class: 'campo-check' }, (() => { const c = h('input', { type: 'checkbox', checked: av.embAlternativas }); c.addEventListener('change', () => { av.embAlternativas = c.checked; invalidar(); }); return c; })(), 'Embaralhar ordem das alternativas'),
         h('div', { class: 'campo-label' }, 'Gabarito'), versoesEl,
         h('div', { class: 'linha-botoes', style: { marginTop: '10px' } },
-          h('button', { class: 'btn btn-sm', onclick: async () => { if (av.colecaoId && !(await confirmar('Reembaralhar muda o gabarito. Provas já impressas deixarão de corresponder. Continuar?'))) return; gerarVersoes(av, qmap); agendar(); renderVersoes(); } }, '🔀 Reembaralhar'))),
+          h('button', { class: 'btn btn-sm', onclick: async () => { if (av.colecaoId && !(await confirmar('Reembaralhar muda o gabarito. Provas já impressas deixarão de corresponder. Continuar?'))) return; gerarVersoes(av, qmap); agendar(); renderVersoes(); } }, ic('embaralhar'), 'Reembaralhar'))),
       h('div', { class: 'cartao secao' },
         h('h2', { style: { fontSize: '17px', marginTop: 0 } }, 'Concluir'),
         h('div', { class: 'lista' },
-          h('a', { class: 'btn btn-primary', href: `#/formatador/imprimir/${av.id}`, onclick: () => salvar() }, '🖨️ Visualizar / Imprimir prova'),
-          h('button', { class: 'btn btn-ok', onclick: gerarGabaritos }, av.colecaoId ? '🔄 Atualizar gabaritos no Leitor' : '✅ Criar gabaritos no Leitor'),
-          av.colecaoId ? h('a', { class: 'btn', href: `#/leitor/colecao/${av.colecaoId}` }, '📁 Abrir coleção de gabaritos') : null)))));
+          h('a', { class: 'btn btn-primary', href: `#/formatador/imprimir/${av.id}`, onclick: () => salvar() }, ic('impressora'), 'Visualizar / Imprimir prova'),
+          h('button', { class: 'btn btn-ok', onclick: gerarGabaritos }, ic(av.colecaoId ? 'atualizar' : 'check'), av.colecaoId ? 'Atualizar gabaritos no Leitor' : 'Criar gabaritos no Leitor'),
+          av.colecaoId ? h('a', { class: 'btn', href: `#/leitor/colecao/${av.colecaoId}` }, ic('pasta'), 'Abrir coleção de gabaritos') : null)))));
   renderQuestoes();
   renderVersoes();
 }
@@ -483,11 +482,11 @@ function renderGabaritoProfessor(av) {
 
 export async function telaImprimir(app, tela, id) {
   const av = await db.get('avaliacoes', id);
-  if (!av) { app.append(vazio('❓', 'Avaliação não encontrada.')); return; }
+  if (!av) { app.append(vazio('busca', 'Avaliação não encontrada.')); return; }
   const qmap = await carregarQuestoes();
   av.questoes = av.questoes.filter((qid) => qmap[qid]);
   tela.titulo(`Imprimir · ${av.titulo}`);
-  if (!av.questoes.length) { app.append(vazio('📝', 'Esta avaliação ainda não tem questões.', h('a', { class: 'btn btn-primary', href: `#/formatador/avaliacao/${av.id}` }, 'Voltar e adicionar questões'))); return; }
+  if (!av.questoes.length) { app.append(vazio('questao', 'Esta avaliação ainda não tem questões.', h('a', { class: 'btn btn-primary', href: `#/formatador/avaliacao/${av.id}` }, 'Voltar e adicionar questões'))); return; }
   if (garantirVersoes(av, qmap)) await db.put('avaliacoes', av);
 
   const selV = h('select', { class: 'inp', style: { maxWidth: '200px' } },
@@ -535,7 +534,7 @@ export async function telaImprimir(app, tela, id) {
     }
     imprimirPaginas(montar());
   };
-  tela.acoes(h('button', { class: 'btn btn-primary', onclick: imprimir }, '🖨️ Imprimir'));
+  tela.acoes(h('button', { class: 'btn btn-primary', onclick: imprimir }, ic('impressora'), 'Imprimir'));
   app.append(
     h('div', { class: 'cartao secao no-print' },
       h('div', { class: 'linha-botoes' },
@@ -545,7 +544,7 @@ export async function telaImprimir(app, tela, id) {
         h('label', { class: 'campo-check', style: { margin: 0 } }, chkGab, 'Gabarito do professor'),
         h('span', { class: 'espaco' }),
         h('a', { class: 'btn', href: `#/formatador/avaliacao/${av.id}` }, 'Editar'),
-        h('button', { class: 'btn btn-primary', onclick: imprimir }, '🖨️ Imprimir / Salvar PDF')),
+        h('button', { class: 'btn btn-primary', onclick: imprimir }, ic('impressora'), 'Imprimir / Salvar PDF')),
       h('div', { class: 'linha-botoes', style: { marginTop: '10px' } }, h('span', { class: 'campo-label' }, 'Layout da prova:'), selCols,
         h('label', { class: 'campo-check', style: { margin: 0 } }, chkLinha, 'Linha divisória entre as questões')),
       chkSimples.checked && nAlt > 6 ? h('p', { class: 'dica', style: { color: 'var(--verm)' } }, 'O gabarito simplificado aceita até 6 alternativas.') : null,

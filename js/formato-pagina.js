@@ -74,11 +74,6 @@ export function definirComoPadrao(av) {
 export function padraoUsuario() {
   try { const s = localStorage.getItem(CHAVE_PADRAO); return s ? JSON.parse(s) : null; } catch { return null; }
 }
-export function restaurarPadraoABNT() {
-  try { localStorage.removeItem(CHAVE_PADRAO); } catch { /* sem armazenamento */ }
-  window.dispatchEvent(new CustomEvent('prof-config-mudou', { detail: 'formato' }));
-}
-
 /** Formatação inicial de uma nova avaliação: a do usuário (se definida) ou a ABNT. */
 export function formatacaoInicial() {
   return { ...structuredClone(PADRAO_ABNT), ...(padraoUsuario() || {}) };

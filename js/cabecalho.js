@@ -3,6 +3,7 @@
 
 import { h, modal, toast, lerImagem, escolherArquivo, esc } from './ui.js';
 import { escolherCorte } from './editor-imagem.js';
+import { ic } from './icones.js';
 
 export const LARGURA_UTIL_MM = 186; // largura útil da página A4 (margens de 12 mm)
 
@@ -150,8 +151,8 @@ export async function editarCabecalho(atual = null) {
         b('↔ Centro', 'Centralizar', () => alinhar('centro')),
         b('Direita ⇥', 'Alinhar à direita', () => alinhar('dir')),
         b('⬌ Largura total', 'Ocupar toda a largura', () => { cab.larguraMm = LARGURA_UTIL_MM; cab.x = 0; desenhar(); }),
-        b('✂ Cortar', 'Cortar a imagem', cortar),
-        b('🖼 Trocar imagem', 'Escolher outra imagem', trocar)),
+        b([ic('tesoura'), 'Cortar'], 'Cortar a imagem', cortar),
+        b([ic('imagem'), 'Trocar imagem'], 'Escolher outra imagem', trocar)),
       h('div', { class: 'linha-botoes cabed-medidas' },
         h('label', {}, 'Largura ', inpL, ' cm'), h('label', {}, 'Altura ', inpA, ' cm'),
         h('label', {}, 'Horizontal ', inpX, ' cm'), h('label', {}, 'Do topo ', inpY, ' cm'), h('label', {}, 'Espaço abaixo ', inpEsp, ' cm')),

@@ -106,7 +106,7 @@ export async function telaBanco(app, tela) {
   const novaBtn = () => h('a', { class: 'btn btn-primary', href: '#/formatador/questao/nova' }, '+ Nova questão');
   app.append(h('div', { class: 'linha-botoes', style: { marginBottom: '12px' } }, novaBtn(), botaoIA(gerar)));
   if (!questoes.length) {
-    app.append(vazio('📝', 'Nenhuma questão cadastrada ainda.', h('div', { class: 'linha-botoes', style: { justifyContent: 'center' } }, novaBtn(), botaoIA(gerar))));
+    app.append(vazio('questao', 'Nenhuma questão cadastrada ainda.', h('div', { class: 'linha-botoes', style: { justifyContent: 'center' } }, novaBtn(), botaoIA(gerar))));
     return;
   }
   const { el } = listaFiltravel(questoes, (q) => {
@@ -142,7 +142,7 @@ export async function telaBanco(app, tela) {
 export async function telaQuestao(app, tela, id, params) {
   const nova = id === 'nova';
   const q = nova ? { id: uid(), comando: '', solucao: '', distratores: ['', '', '', ''], disciplina: '', assunto: '', serie: '', dificuldade: '' } : await db.get('questoes', id);
-  if (!q) { app.append(vazio('❓', 'Questão não encontrada.')); return; }
+  if (!q) { app.append(vazio('busca', 'Questão não encontrada.')); return; }
   const avaliacaoId = params.get('avaliacao');
   tela.titulo(nova ? 'Nova questão' : 'Editar questão');
   const todas = await db.getAll('questoes');

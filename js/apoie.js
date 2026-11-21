@@ -2,7 +2,8 @@
 import { h, toast } from './ui.js';
 
 // Código Pix estático (sem valor definido: quem contribui escolhe o valor no app do banco)
-export const PIX = '00020126910014br.gov.bcb.pix0136bf6a3f3c-4d14-4f34-a163-3fda7ac015700229Agradecemos sua contribuicao.5204000053039865802BR5923WEMERSON NUNES DA SILVA6009Sao Paulo62080504Prof630438DE';
+export const PIX = '00020126800014br.gov.bcb.pix0125prof.avaliacoes@gmail.com0229Agradecemos sua contribuicao.5204000053039865802BR5923WEMERSON NUNES DA SILVA6009Sao Paulo62080504Prof63045D12';
+const CHAVE = 'prof.avaliacoes@gmail.com';
 const RECEBEDOR = 'Wemerson Nunes da Silva';
 
 async function copiar(texto) {
@@ -27,9 +28,15 @@ export function telaApoie(app, tela) {
     },
   }, 'Copiar código Pix');
 
+  const btnChave = h('button', {
+    class: 'btn btn-grande', type: 'button', onclick: async () => {
+      if (await copiar(CHAVE)) { btnChave.textContent = '✓ Chave copiada'; toast('Chave Pix copiada.', 'ok'); setTimeout(() => { btnChave.textContent = 'Copiar chave Pix'; }, 3000); }
+      else toast('Copie a chave manualmente: ' + CHAVE, 'erro');
+    },
+  }, 'Copiar chave Pix');
+
   app.append(h('div', { class: 'apoie' },
     h('section', { class: 'cartao apoie-cartao' },
-      h('div', { class: 'apoie-coracao', 'aria-hidden': 'true' }, '♥'),
       h('h2', {}, 'Gostou do Prof?'),
       h('p', {}, 'O Prof é feito por um professor, para professores. Se ele economiza o seu tempo, considere contribuir com qualquer valor. A contribuição é voluntária e ajuda a manter o app no ar e a criar novos recursos.'),
       h('img', { class: 'apoie-qr', src: 'icons/pix-qr.svg', alt: 'QR Code Pix para contribuir com o Prof', width: 240, height: 240 }),
@@ -38,6 +45,9 @@ export function telaApoie(app, tela) {
       btnCopiar,
       codigo,
       h('p', { class: 'dica' }, 'No app do banco: ', h('b', {}, 'Pix → Pix copia e cola'), ', cole o código e digite o valor.'),
+      h('div', { class: 'apoie-ou' }, 'ou use a chave Pix (e-mail)'),
+      h('p', { class: 'apoie-chave' }, CHAVE),
+      btnChave,
       h('p', { class: 'dica apoie-recebedor' }, `O Pix vai para ${RECEBEDOR}. Confira o nome antes de confirmar.`)),
     h('p', { class: 'dica apoie-obrigado' }, 'Obrigado por apoiar! 💙')));
 }

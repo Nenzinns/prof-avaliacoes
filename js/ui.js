@@ -1,4 +1,5 @@
 // Utilitários de interface: criação de elementos, modais, toasts.
+import { ICONES, icBloco } from './icones.js';
 
 export function h(tag, attrs = {}, ...children) {
   const el = document.createElement(tag);
@@ -94,7 +95,8 @@ export function campo(label, input, dica) {
 }
 
 export function vazio(icone, texto, ...extra) {
-  return h('div', { class: 'vazio' }, h('div', { class: 'vazio-icone' }, icone), h('p', {}, texto), ...extra);
+  const el = ICONES[icone] ? icBloco(icone, 'grande') : h('div', { class: 'vazio-icone' }, icone);
+  return h('div', { class: 'vazio' }, el, h('p', {}, texto), ...extra);
 }
 
 /** Lê arquivo de imagem e devolve dataURL redimensionado (JPEG/PNG). */

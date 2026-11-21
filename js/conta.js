@@ -2,7 +2,7 @@
 // Entrar com Google ou com um código de 6 dígitos enviado por e-mail.
 // A biblioteca do Supabase só é carregada quando necessária (ao abrir a conta ou se já houver login).
 import { h, modal, toast, confirmar } from './ui.js';
-import { sincronizar, estadoSync, pendentes, apagarDadosDaNuvem } from './sincronizacao.js';
+import { sincronizar, estadoSync, pendentes, qtdOutrosAparelhos, listarAparelhos, desconectarAparelho, pedirCopiaCompleta, removerEsteAparelho } from './sincronizacao.js';
 
 const SUPABASE_URL = 'https://qsahfbtfmrsbzzjngjeh.supabase.co';
 // chave pública (publishable): pode ficar no app; a proteção dos dados é feita pelas regras do banco
@@ -44,12 +44,14 @@ export function cliente() {
 }
 
 export const usuario = () => usuarioAtual;
-const temSessaoSalva = () => { try { return !!localStorage.getItem(CHAVE_SESSAO); } catch { return false; } };
+export const temSessaoSalva = () => { try { return !!localStorage.getItem(CHAVE_SESSAO); } catch { return false; } };
 
 /**
  * Chamado ao abrir o app: conclui o login que voltou do Google (?code=…)
  * e restaura a sessão de quem já entrou antes.
  */
+export const voltouDoLogin = () => { const p = new URL(location.href).searchParams; return p.has('code') || p.has('error_description'); };
+
 export async function iniciarConta() {
   const url = new URL(location.href);
   const voltouDoLogin = url.searchParams.has('code') || url.searchParams.has('error_description');
@@ -184,6 +186,28 @@ export function secaoConta() {
             : 'Aguardando sincronização…';
   };
 
+  const listaAparelhos = h('ul', { class: 'cfg-fila aparelhos' });
+  const carregarAparelhos = async () => {
+    listaAparelhos.replaceChildren(h('li', { class: 'cfg-vazio' }, 'Carregando…'));
+    try {
+      const lista = await listarAparelhos();
+      const quando = (t) => (t ? new Date(t).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
+      listaAparelhos.replaceChildren(...lista.map((a) => h('li', { class: 'cfg-item' },
+        h('div', { class: 'cfg-info' },
+          h('div', { class: 'cfg-nome' }, a.nome || 'Aparelho', a.este ? h('span', { class: 'chip' }, 'este aparelho') : null),
+          h('div', { class: 'cfg-sub' }, a.este ? `Conectado desde ${quando(a.criado_em)}` : `Última vez: ${quando(a.visto_em)}`)),
+        a.este ? null : h('button', {
+          class: 'btn btn-sm', type: 'button', onclick: async () => {
+            if (!(await confirmar(`Desconectar "${a.nome || 'aparelho'}" da sua conta? Ele deixa de receber as alterações e sai da conta na próxima vez que for aberto. Os dados que já estão nele continuam lá.`, { ok: 'Desconectar', perigo: true }))) return;
+            try { await desconectarAparelho(a.id); toast('Aparelho desconectado', 'ok'); carregarAparelhos(); } catch (e) { toast(e.message, 'erro'); }
+          },
+        }, 'Desconectar'))));
+      if (lista.length < 2) listaAparelhos.append(h('li', { class: 'cfg-vazio' }, 'Entre com a mesma conta em outro aparelho para sincronizar.'));
+    } catch (e) {
+      listaAparelhos.replaceChildren(h('li', { class: 'cfg-vazio' }, 'A lista aparece depois da primeira sincronização.'));
+    }
+  };
+
   const render = () => {
     const u = usuarioAtual;
     if (u) {
@@ -195,19 +219,24 @@ export function secaoConta() {
           h('div', { class: 'conta-info' }, nome ? h('div', { class: 'cfg-nome' }, nome) : null, h('div', { class: 'cfg-sub' }, u.email || '')),
           h('button', {
             class: 'btn btn-sm', type: 'button', onclick: async () => {
-              try { await sair(); toast('Você saiu da conta'); } catch (e) { toast(e.message, 'erro'); }
+              if (!(await confirmar('Sair da conta neste aparelho? Os dados continuam aqui, mas deixam de ser sincronizados com os outros aparelhos.', { ok: 'Sair' }))) return;
+              try { await removerEsteAparelho(); await sair(); toast('Você saiu da conta'); } catch (e) { toast(e.message, 'erro'); }
             },
           }, 'Sair')),
         linhaSync,
-        h('p', { class: 'dica' }, 'Questões, avaliações, gabaritos, chaves de IA e formatação padrão são sincronizados entre os aparelhos em que você entrar. Os resultados dos alunos ficam só em cada aparelho.'),
+        h('p', { class: 'dica' }, 'Questões, avaliações, gabaritos, chaves de IA e formatação padrão passam de um aparelho para o outro, como no WhatsApp: o servidor só entrega as alterações e as apaga assim que seus aparelhos as recebem. Nada fica guardado na nuvem, por isso mantenha um backup em dia. Os resultados dos alunos ficam só em cada aparelho.'),
         h('div', { class: 'linha-botoes' },
-          h('button', { class: 'btn btn-sm', type: 'button', onclick: () => sincronizar() }, 'Sincronizar agora'),
+          h('button', { class: 'btn btn-sm', type: 'button', onclick: () => sincronizar() }, 'Sincronizar agora')),
+        h('h3', { class: 'cfg-subtit' }, 'Aparelhos conectados'),
+        listaAparelhos,
+        h('div', { class: 'linha-botoes' },
           h('button', {
-            class: 'btn btn-sm btn-link-perigo', type: 'button', onclick: async () => {
-              if (!(await confirmar('Apagar da nuvem todas as questões, avaliações, gabaritos e configurações desta conta? Os dados deste aparelho continuam aqui, mas os outros aparelhos deixam de receber atualizações. Você sairá da conta.', { ok: 'Apagar da nuvem', perigo: true }))) return;
-              try { await apagarDadosDaNuvem(); await sair(); toast('Dados apagados da nuvem', 'ok'); } catch (e) { toast(e.message, 'erro'); }
+            class: 'btn btn-sm btn-link', type: 'button', title: 'Use se algo ficou faltando neste aparelho', onclick: async () => {
+              if (!(await confirmar('Pedir aos seus outros aparelhos uma cópia completa de tudo? Ela chega quando um deles for aberto com internet.', { ok: 'Pedir cópia' }))) return;
+              try { await pedirCopiaCompleta(); toast('Pedido enviado. Abra o Prof em outro aparelho seu.', 'ok'); } catch (e) { toast(e.message, 'erro'); }
             },
-          }, 'Apagar meus dados da nuvem')));
+          }, 'Receber cópia completa de novo')));
+      carregarAparelhos();
       mostrarSync();
     } else {
       corpo.replaceChildren(
@@ -236,4 +265,53 @@ export function secaoConta() {
   if (!usuarioAtual && temSessaoSalva()) cliente().then((c) => c.auth.getSession()).then(({ data }) => { usuarioAtual = data.session?.user || null; render(); }).catch(() => {});
   sec.append(h('p', { class: 'dica conta-politica' }, h('a', { href: 'privacidade.html', target: '_blank', rel: 'noopener' }, 'Política de privacidade')));
   return sec;
+}
+
+// ---------------------------------------------------------------- tela de login (antes da tela inicial)
+const CONVIDADO = 'prof-convidado';
+/** Quem escolheu "Continuar sem conta" não vê a tela de login de novo até fechar o app. */
+export const convidadoNestaSessao = () => { try { return sessionStorage.getItem(CONVIDADO) === '1'; } catch { return false; } };
+
+/** Mostra a tela de login; termina quando a pessoa entra ou escolhe continuar sem conta. */
+export function telaLogin() {
+  return new Promise((resolve) => {
+    const aviso = h('p', { class: 'login-aviso', role: 'status' });
+    const fechar = () => { tela.remove(); resolve(); };
+    const tela = h('div', { class: 'login', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Entrar no Prof' },
+      h('div', { class: 'login-cartao' },
+        h('img', { class: 'login-logo', src: 'icons/icon.svg', alt: '' }),
+        h('h1', {}, 'Prof'),
+        h('p', { class: 'login-sub' }, 'Correção de gabaritos e formatação de avaliações'),
+        h('p', { class: 'login-txt' }, 'Entre para usar as suas questões, avaliações e gabaritos em todos os seus aparelhos.'),
+        h('button', {
+          class: 'btn btn-google btn-grande', type: 'button', onclick: async (e) => {
+            const b = e.currentTarget;
+            b.disabled = true;
+            aviso.textContent = 'Abrindo o Google…';
+            try { await entrarComGoogle(); } catch (err) { aviso.textContent = err.message; b.disabled = false; }
+          },
+        }, h('span', { html: iconeGoogle }), 'Entrar com Google'),
+        h('button', {
+          class: 'btn btn-grande', type: 'button', onclick: async () => {
+            aviso.textContent = '';
+            try {
+              if (await dialogoEmail()) { toast('Você entrou como ' + (usuarioAtual?.email || ''), 'ok'); fechar(); }
+            } catch (err) { aviso.textContent = err.message; }
+          },
+        }, 'Entrar com e-mail'),
+        h('div', { class: 'login-ou' }, 'ou'),
+        h('button', {
+          class: 'btn btn-link login-convidado', type: 'button', onclick: () => {
+            try { sessionStorage.setItem(CONVIDADO, '1'); } catch { /* sem armazenamento */ }
+            fechar();
+          },
+        }, 'Continuar sem conta (convidado)'),
+        h('p', { class: 'login-nota' }, 'Sem conta, os dados ficam somente neste aparelho. Você pode entrar depois em Configurações → Conta.'),
+        aviso,
+        h('a', { class: 'login-politica', href: 'privacidade.html', target: '_blank', rel: 'noopener' }, 'Política de privacidade')));
+    // se o login terminar por outro caminho (link do e-mail em outra aba), fecha a tela
+    const aoEntrar = (e) => { if (e.detail && tela.isConnected) { window.removeEventListener('prof-conta', aoEntrar); fechar(); } };
+    window.addEventListener('prof-conta', aoEntrar);
+    document.body.append(tela);
+  });
 }

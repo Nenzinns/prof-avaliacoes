@@ -1,6 +1,7 @@
 import { h, uid, toast, modal, confirmar, campo, vazio, LETRAS, dataBR, baixar, escolherArquivo, carregarPdfJs } from './ui.js';
 import { db } from './db.js';
 import { lerFolha, paraCanvas, desenharResultado } from './omr-reader.js';
+import { ic, icBloco } from './icones.js';
 
 // ---------------------------------------------------------------- Menu do leitor
 export async function telaLeitor(app, tela) {
@@ -16,27 +17,20 @@ export async function telaLeitor(app, tela) {
   app.append(
     h('div', { class: 'botoes-leitor' },
       h('button', { class: 'botao-acao', onclick: () => escolherColecao((id) => `/leitor/corrigir/${id}?modo=camera`) },
-        h('span', { class: 'ba-ic' }, '📷'), h('span', {}, 'Corrigir com a câmera', h('small', {}, 'Aponte o celular para a folha de respostas'))),
+        icBloco('camera'), h('span', {}, 'Corrigir com a câmera', h('small', {}, 'Aponte o celular para a folha de respostas'))),
       h('button', { class: 'botao-acao', onclick: () => escolherColecao((id) => `/leitor/corrigir/${id}?modo=arquivos`) },
-        h('span', { class: 'ba-ic' }, '🗂️'), h('span', {}, 'Corrigir provas escaneadas', h('small', {}, 'Fotos ou PDF do scanner, várias de uma vez'))),
+        icBloco('escaneadas'), h('span', {}, 'Corrigir provas escaneadas', h('small', {}, 'Fotos ou PDF do scanner, várias de uma vez'))),
       h('a', { class: 'botao-acao', href: '#/leitor/gabaritos' },
-        h('span', { class: 'ba-ic' }, '📁'), h('span', {}, 'Gabaritos', h('small', {}, 'Criar e organizar coleções de gabaritos'))),
+        icBloco('pasta'), h('span', {}, 'Gabaritos', h('small', {}, 'Criar e organizar coleções de gabaritos'))),
       h('button', { class: 'botao-acao', onclick: () => escolherColecao((id) => `/leitor/resultados/${id}`) },
-        h('span', { class: 'ba-ic' }, '📊'), h('span', {}, 'Resultados', h('small', {}, 'Notas, estatísticas e exportação')))));
+        icBloco('grafico'), h('span', {}, 'Resultados', h('small', {}, 'Notas, estatísticas e exportação')))));
   if (cols.length) {
     app.append(h('div', { class: 'secao-head' }, h('h2', {}, 'Coleções recentes')),
       h('div', { class: 'lista' }, cols.slice(0, 6).map((c) => h('a', { class: 'item', href: `#/leitor/colecao/${c.id}` },
-        h('span', { style: { fontSize: '26px' } }, '📁'),
+        icBloco('pasta', 'pequeno'),
         h('div', { class: 'item-corpo' }, h('div', { class: 'item-titulo' }, c.nome),
           h('div', { class: 'item-sub' }, `${c.gabaritos.length} gabarito(s) · ${c.nQuestoes} questões`))))));
   }
-  app.append(h('details', { class: 'cartao', style: { marginTop: '22px' } },
-    h('summary', {}, 'Como funciona a correção'),
-    h('ol', { class: 'dica', style: { fontSize: '14px', lineHeight: 1.6 } },
-      h('li', {}, 'Crie uma coleção com um ou mais gabaritos (um por tipo de prova).'),
-      h('li', {}, 'Na coleção, imprima as folhas de resposta e entregue aos alunos.'),
-      h('li', {}, 'Corrija com a câmera (a captura é automática quando os 4 cantos são encontrados) ou envie as folhas escaneadas.'),
-      h('li', {}, 'Confira a leitura, ajuste se necessário e salve. As notas ficam em "Resultados".'))));
 }
 
 // ---------------------------------------------------------------- Correção
@@ -88,7 +82,7 @@ async function arquivosParaImagens(files) {
 
 export async function telaCorrigir(app, tela, colId, params) {
   const col = await db.get('colecoes', colId);
-  if (!col) { app.append(vazio('❓', 'Coleção não encontrada.')); return; }
+  if (!col) { app.append(vazio('busca', 'Coleção não encontrada.')); return; }
   tela.titulo(`Corrigir · ${col.nome}`);
   const modo = params.get('modo') || 'camera';
   const cfg = { nQuestoes: col.nQuestoes, nAlt: col.nAlternativas, nTipos: col.gabaritos.length > 1 ? col.gabaritos.length : 0 };
@@ -96,8 +90,8 @@ export async function telaCorrigir(app, tela, colId, params) {
   tela.acoes(h('a', { class: 'btn', href: `#/leitor/resultados/${col.id}` }, 'Resultados'));
 
   app.append(h('div', { class: 'abas' },
-    h('a', { class: `aba ${modo === 'camera' ? 'ativa' : ''}`, href: `#/leitor/corrigir/${col.id}?modo=camera` }, '📷 Câmera'),
-    h('a', { class: `aba ${modo === 'arquivos' ? 'ativa' : ''}`, href: `#/leitor/corrigir/${col.id}?modo=arquivos` }, '🗂️ Arquivos escaneados')));
+    h('a', { class: `aba ${modo === 'camera' ? 'ativa' : ''}`, href: `#/leitor/corrigir/${col.id}?modo=camera` }, ic('camera'), 'Câmera'),
+    h('a', { class: `aba ${modo === 'arquivos' ? 'ativa' : ''}`, href: `#/leitor/corrigir/${col.id}?modo=arquivos` }, ic('escaneadas'), 'Arquivos escaneados')));
   if (incompletos.length) {
     app.append(h('div', { class: 'erro', style: { marginBottom: '12px' } },
       `Atenção: ${incompletos.map((g) => g.nome).join(', ')} tem questões sem resposta no gabarito. `,
@@ -194,7 +188,7 @@ function modoArquivos(area, cfg, revisar) {
   };
   area.append(
     h('div', { class: 'cartao', style: { textAlign: 'center', padding: '34px 16px' } },
-      h('div', { style: { fontSize: '44px' } }, '🗂️'),
+      icBloco('escaneadas', 'grande'),
       h('p', {}, 'Envie fotos (JPG, PNG) ou PDFs do scanner com as folhas de resposta. Pode selecionar vários arquivos de uma vez.'),
       h('button', { class: 'btn btn-primary btn-grande', onclick: enviar }, 'Selecionar arquivos'),
       h('p', { class: 'dica' }, 'Dica: escaneie em 200 dpi ou mais, em tons de cinza ou colorido.')),
@@ -269,7 +263,7 @@ function mostrarRevisao(el, col, leitura, origem, concluir) {
         leitura.formato === 'compacto' ? h('p', { class: 'dica' }, 'Gabarito da prova (sem número do aluno): digite o nº ou o nome.') : null,
         grade,
         h('div', { class: 'linha-botoes', style: { marginTop: '16px' } },
-          h('button', { class: 'btn btn-ok btn-grande', onclick: salvar }, '✔ Salvar e continuar'),
+          h('button', { class: 'btn btn-ok btn-grande', onclick: salvar }, ic('check'), 'Salvar e continuar'),
           h('button', { class: 'btn', onclick: () => concluir(false) }, 'Descartar'))))));
   render();
   el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -278,12 +272,12 @@ function mostrarRevisao(el, col, leitura, origem, concluir) {
 // ---------------------------------------------------------------- Resultados
 export async function telaResultados(app, tela, colId) {
   const col = await db.get('colecoes', colId);
-  if (!col) { app.append(vazio('❓', 'Coleção não encontrada.')); return; }
+  if (!col) { app.append(vazio('busca', 'Coleção não encontrada.')); return; }
   tela.titulo(`Resultados · ${col.nome}`);
   const res = (await db.byIndex('resultados', 'colecaoId', colId))
     .sort((a, b) => (a.aluno || '999').localeCompare(b.aluno || '999', 'pt', { numeric: true }));
-  tela.acoes(h('a', { class: 'btn btn-primary', href: `#/leitor/corrigir/${col.id}` }, '📷 Corrigir'));
-  if (!res.length) { app.append(vazio('📊', 'Nenhuma prova corrigida nesta coleção ainda.', h('a', { class: 'btn btn-primary', href: `#/leitor/corrigir/${col.id}` }, 'Corrigir provas'))); return; }
+  tela.acoes(h('a', { class: 'btn btn-primary', href: `#/leitor/corrigir/${col.id}` }, ic('camera'), 'Corrigir'));
+  if (!res.length) { app.append(vazio('grafico', 'Nenhuma prova corrigida nesta coleção ainda.', h('a', { class: 'btn btn-primary', href: `#/leitor/corrigir/${col.id}` }, 'Corrigir provas'))); return; }
 
   const gabDe = (r) => col.gabaritos.find((g) => g.id === r.gabaritoId);
   const notas = res.map((r) => r.nota);
